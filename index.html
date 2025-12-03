@@ -552,7 +552,8 @@
         let isHelpMode = false;
 
         // ==== 무료 사용 제한 (브라우저 기준, 유저당 5회) ====
-        const FREE_LIMIT = 5;
+        const FREE_LIMIT = 5;          // 무료 다이어그램 개수
+        const FREE_NODE_LIMIT = 20;    // 한 번에 허용되는 최대 노드 수
 
         // 현재 로그인 유저 기준 localStorage 키
         function getUsageStorageKey() {
@@ -599,7 +600,7 @@
 
             const used = getUsageCount();
             const shownUsed = Math.min(used, FREE_LIMIT);
-            span.textContent = `Free uses: ${shownUsed} / ${FREE_LIMIT}`;
+            span.textContent = `Free uses: ${shownUsed} / ${FREE_LIMIT} (≤ ${FREE_NODE_LIMIT} nodes)`;
         }
         
         let currentBranchShape = "rounded";   // 분기 모양: 기본은 둥근 사각형
@@ -1313,9 +1314,11 @@
                 const funcName = data.func_name || "";
                 const nodeLines = data.node_lines || {};
 
+                // === 노드 개수 계산 ===
                 const nodeCount = Object.keys(nodeLines).length;
                 window.__nodeCount = nodeCount;
 
+                // 헤더에 Nodes: XX 표시 (노드 초과여도 현재 개수는 보여 주자)
                 const codeHeader = document.getElementById("codeHeader");
                 if (codeHeader) {
                     codeHeader.innerHTML = `
@@ -1324,7 +1327,25 @@
                     `;
                 }
 
+                // 노드 → 라인번호 맵 전역 저장
                 window.__nodeLines = nodeLines;
+
+                // 🔒 노드 수 제한 체크 (무료 플랜: 최대 FREE_NODE_LIMIT)
+                if (nodeCount > FREE_NODE_LIMIT) {
+                    status.textContent =
+                        `Free plan is limited to ${FREE_NODE_LIMIT} nodes per diagram. ` +
+                        `This function has ${nodeCount} nodes.`;
+                    status.className = "error";
+
+                    chartInner.innerHTML = `
+                        <p class="placeholder" style="color:#b91c1c;">
+                            This diagram has ${nodeCount} nodes, which exceeds the free limit (${FREE_NODE_LIMIT}).
+                            Please try a smaller function or contact the developer for full access.
+                        </p>`;
+                    currentFunc.textContent = "";
+                    // 이 경우에는 사용 횟수는 차감하지 않음
+                    return;
+                }
 
                 if (errorMsg) {
                     status.textContent = "Error: " + errorMsg;
@@ -1353,7 +1374,7 @@
                 applyDiagramZoom();
                 setTimeout(attachNodeClickHandlers, 50);
 
-                // ✅ 성공적으로 그렸으면 사용량 +1
+                // 성공적으로 그렸으면 사용량 +1
                 incrementUsageCount();
 
             } catch (err) {
