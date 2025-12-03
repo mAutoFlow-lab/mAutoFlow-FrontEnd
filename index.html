@@ -387,6 +387,9 @@
         const API_BASE = "https://mautoflow-backend.onrender.com";
 	mermaid.initialize({ startOnLoad: false });
 
+	// ✅ 테스트 전용 계정 (무제한)
+        const TEST_EMAIL = "exitgiveme@gmail.com";
+
         // ===== 하루 무료 사용량 설정 =====
         const DAILY_FREE_LIMIT = 5;     // 하루 무료 5회
         const FREE_NODE_LIMIT  = 10;    // 노드 10개까지 허용
@@ -637,6 +640,12 @@
 
             if (!window.currentUser) {
                 span.textContent = "";
+                return;
+            }
+
+            // ✅ 테스트 계정이면 무제한 표시
+            if (window.currentUser.email === TEST_EMAIL) {
+                span.textContent = "Free uses: unlimited (test account)";
                 return;
             }
 
@@ -1275,22 +1284,22 @@
         }
 
         async function generateFlowchart(auto = false) {
-            // 🔓 테스트 계정 무제한 허용
-            const TEST_EMAIL = "exitgiveme@gmail.com";
-            const isTestUser = (window.currentUser && window.currentUser.email === TEST_EMAIL);
-            
             const status      = document.getElementById("status");
             const chartInner  = document.getElementById("chartInner");
             const currentFunc = document.getElementById("currentFunc");
 
-            // 🔒 로그인 안 되어 있으면 막기
+            // ✅ 로그인 상태 확인
             if (!window.currentUser) {
                 status.textContent = "Please log in to use mAutoFlow.";
                 status.className   = "error";
                 return;
             }
 
-            const src = document.getElementById("src").value.trim();
+            // ✅ 테스트 계정 여부
+            const isTestUser = (window.currentUser.email === TEST_EMAIL);
+
+            const srcEl = document.getElementById("src");
+            const src = srcEl ? srcEl.value.trim() : "";
             if (!src) {
                 status.textContent = auto ? "" : "Enter the C code on the left.";
                 status.className   = auto ? "" : "error";
@@ -1302,15 +1311,16 @@
                 return;
             }
 
-            // 🔒 하루 사용량 제한 (5회)
-            const usage = getTodayUsage();
-            // if (usage.count >= DAILY_FREE_LIMIT) {
-            // 🔓 테스트 계정은 제한 없음
-            if (!isTestUser && usage.count >= DAILY_FREE_LIMIT) {
-                status.textContent =
-                    `Daily free limit reached (${DAILY_FREE_LIMIT} diagrams per day, up to ${FREE_NODE_LIMIT} nodes). Please try again tomorrow.`;
-                status.className = "error";
-                return;
+            // ✅ 하루 사용량 제한 (테스트 계정은 완전 제외)
+            let usage = { count: 0 };
+            if (!isTestUser) {
+                usage = getTodayUsage();
+                if (usage.count >= DAILY_FREE_LIMIT) {
+                    status.textContent =
+                        `Daily free limit reached (${DAILY_FREE_LIMIT} diagrams per day, up to ${FREE_NODE_LIMIT} nodes). Please try again tomorrow.`;
+                    status.className = "error";
+                    return;
+                }
             }
 
             // 줌 초기화
@@ -1353,12 +1363,10 @@
                     return;
                 }
 
-                // 노드 수 계산
                 const nodeCount = Object.keys(nodeLines).length;
                 window.__nodeCount = nodeCount;
                 window.__nodeLines = nodeLines;
 
-                // 헤더 갱신
                 const codeHeader = document.getElementById("codeHeader");
                 if (codeHeader) {
                     codeHeader.innerHTML = `
@@ -1366,9 +1374,7 @@
                         <span style="opacity:0.7;">Nodes: ${nodeCount}</span>`;
                 }
 
-                // 🔒 무료 버전 노드 제한
-                // if (nodeCount > FREE_NODE_LIMIT) {
-                // 🔓 테스트 계정은 노드 제한 없음
+                // ✅ 노드 제한 (테스트 계정은 무제한)
                 if (!isTestUser && nodeCount > FREE_NODE_LIMIT) {
                     status.textContent =
                         `This function has ${nodeCount} nodes, exceeding the free limit (${FREE_NODE_LIMIT}).`;
@@ -1379,7 +1385,6 @@
                             Free version supports up to ${FREE_NODE_LIMIT} nodes.
                         </p>`;
                     currentFunc.textContent = "";
-                    // ❌ 사용량 증가 없음
                     return;
                 }
 
@@ -1389,15 +1394,18 @@
                 applyDiagramZoom();
                 setTimeout(attachNodeClickHandlers, 50);
 
-                // ⭐ 여기서만 오늘 사용량 증가
-                let usageNow = getTodayUsage();
+                // ✅ 사용량 증가 / 메시지 표시
                 if (!isTestUser) {
+                    let usageNow = getTodayUsage();
                     usageNow.count += 1;
                     saveTodayUsage(usageNow);
-                }
 
-                status.textContent =
-                    `${auto ? "Refresh Complete." : "Flowchart creation complete."} (Today: ${usageNow.count}/${DAILY_FREE_LIMIT})`;
+                    status.textContent =
+                        `${auto ? "Refresh Complete." : "Flowchart creation complete."} (Today: ${usageNow.count}/${DAILY_FREE_LIMIT})`;
+                } else {
+                    status.textContent =
+                        `${auto ? "Refresh Complete." : "Flowchart creation complete."} (Test account: unlimited)`;
+                }
                 status.className = "success";
 
                 currentFunc.textContent = funcName ? `Function: ${funcName}()` : "";
