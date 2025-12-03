@@ -1180,8 +1180,16 @@
         }
 
         async function generateFlowchart(auto=false) {
+             const status = document.getElementById("status");
+             // 🔒 로그인 안 되어 있으면 막기
+                    if (!window.currentUser) {
+                        if (status) {
+                             status.textContent = "Please log in to use mAutoFlow.";
+                             status.className = "error";
+                        }
+                        return;
+                    }
             const src = document.getElementById("src").value;
-            const status = document.getElementById("status");
             const chartInner = document.getElementById("chartInner");
             const currentFunc = document.getElementById("currentFunc");
 
@@ -1470,6 +1478,18 @@
             <div class="subtitle">When you enter C code on the left, a flowchart is automatically generated on the right.</div>
         </div>
         <div class="topbar-right">
+	    <!--  로그인 영역 -->
+                   <span id="welcomeText" style="margin-right:8px;"></span>
+
+                   <div id="loggedOutButtons" style="display:inline-flex; gap:4px; margin-right:8px;">
+                       <button class="btn-settings" onclick="loginWithGoogle()">Login with Google</button>
+                       <button class="btn-settings" onclick="loginWithEmail()">Login with Email</button>
+                   </div>
+
+                   <div id="loggedInButtons" style="display:none; gap:4px; margin-right:8px;">
+                       <button class="btn-settings" onclick="logout()">Logout</button>
+                   </div>
+                   <!--  로그인 영역 끝 --> 	
             <button class="btn-settings" onclick="downloadDiagram()">DOWNLOAD</button>
             <button class="btn-settings" onclick="openSettings()">SETTINGS</button>
             <button id="helpToggleBtn" class="btn-settings" onclick="toggleHelp()">HELP</button>
@@ -1578,5 +1598,86 @@ void main(void)
             </div>
         </div>
     </div>
+    <!--  Supabase Auth 스크립트: </body> 바로 위에 추가 -->
+    <script type="module">
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+        //  여기 두 값은 본인 프로젝트 값으로 교체해야 함
+        const SUPABASE_URL = "https://layaiawwnioetzuxcyev.supabase.co";   // 예시: 대쉬보드의 Project URL
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxheWFpYXd3bmlvZXR6dXhjeWV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NjIxMjgsImV4cCI6MjA4MDMzODEyOH0.ZWC86hD5JaX2Jh0b0wR6bfmqNrEWBrq-YnLu3yg1JJo";            // API 탭의 anon public key
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 현재 로그인 유저를 전역으로 보관
+        window.currentUser = null;
+
+        async function updateAuthUI() {
+            const { data } = await supabase.auth.getUser();
+            const user = data?.user ?? null;
+            window.currentUser = user;
+
+            const welcomeText   = document.getElementById("welcomeText");
+            const loggedOutDiv  = document.getElementById("loggedOutButtons");
+            const loggedInDiv   = document.getElementById("loggedInButtons");
+
+            if (!welcomeText || !loggedOutDiv || !loggedInDiv) return;
+
+            if (user) {
+                welcomeText.textContent = user.email
+                    ? `Welcome, ${user.email}`
+                    : "Welcome!";
+                loggedOutDiv.style.display = "none";
+                loggedInDiv.style.display  = "inline-flex";
+            } else {
+                welcomeText.textContent = "";
+                loggedOutDiv.style.display = "inline-flex";
+                loggedInDiv.style.display  = "none";
+            }
+        }
+
+        async function loginWithGoogle() {
+            await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: "https://mautoflow-lab.netlify.app"   // Netlify 실제 URL
+                }
+            });
+        }
+
+        async function loginWithEmail() {
+            const email = prompt("Email 입력:");
+            if (!email) return;
+            const password = prompt("Password 입력(최소 6자):");
+            if (!password) return;
+
+            // 이미 가입된 경우 자동 로그인, 없으면 에러 메시지
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                alert("로그인 실패: " + error.message);
+            } else {
+                await updateAuthUI();
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            await updateAuthUI();
+        }
+
+        //  전역에서 호출 가능하도록 window에 붙이기
+        window.loginWithGoogle = loginWithGoogle;
+        window.loginWithEmail  = loginWithEmail;
+        window.logout          = logout;
+
+        // 첫 로딩 시 로그인 상태 반영
+        document.addEventListener("DOMContentLoaded", updateAuthUI);
+    </script>
+    <!--  Supabase Auth 스크립트 끝 -->
+
 </body>
 </html>
+
