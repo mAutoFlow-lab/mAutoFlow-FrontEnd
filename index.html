@@ -384,9 +384,9 @@
       
     </style>
     <script>
-        mermaid.initialize({ startOnLoad: false });
-	const API_BASE = "https://mautoflow-backend.onrender.com";
-
+        const API_BASE = "https://mautoflow-backend.onrender.com";
+	mermaid.initialize({ startOnLoad: false });
+	
         const HELP_TEXT_HTML = `
         <h2 style="margin-top:0;">mAutoFlow – Help</h2>
 
@@ -1211,7 +1211,7 @@
             formData.append("branch_shape", currentBranchShape);
 
             try {
-                const res = await fetch("/api/convert_text", {
+                const res = await fetch(API_BASE + "/api/convert_text", {
                     method: "POST",
                     body: formData
                 });
