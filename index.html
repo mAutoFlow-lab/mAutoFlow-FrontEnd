@@ -386,6 +386,53 @@
     <script>
         const API_BASE = "https://mautoflow-backend.onrender.com";
 	mermaid.initialize({ startOnLoad: false });
+
+        // ===== 하루 무료 사용량 설정 =====
+        const DAILY_FREE_LIMIT = 5;     // 하루 무료 5회
+        const FREE_NODE_LIMIT  = 10;    // 노드 10개까지 허용
+        const USAGE_KEY        = "autoflow_daily_usage";
+
+        function getTodayKey() {
+            // YYYY-MM-DD 형식
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function getTodayUsage() {
+            const today = getTodayKey();
+            let raw = null;
+            try {
+                raw = localStorage.getItem(USAGE_KEY);
+            } catch (e) {
+                return { date: today, count: 0 };
+            }
+
+            if (!raw) {
+                return { date: today, count: 0 };
+            }
+
+            try {
+                const data = JSON.parse(raw);
+                if (!data.date || data.date !== today) {
+                    // 날짜가 다르면 새로 시작
+                    return { date: today, count: 0 };
+                }
+                if (typeof data.count !== "number") {
+                    return { date: today, count: 0 };
+                }
+                return { date: today, count: data.count };
+            } catch (e) {
+                return { date: today, count: 0 };
+            }
+        }
+
+        function saveTodayUsage(obj) {
+            try {
+                localStorage.setItem(USAGE_KEY, JSON.stringify(obj));
+            } catch (e) {
+                // 저장 실패는 그냥 무시
+            }
+        }
+	
 	
         const HELP_TEXT_HTML = `
         <h2 style="margin-top:0;">mAutoFlow – Help</h2>
@@ -1233,41 +1280,31 @@
         }
 
         async function generateFlowchart(auto = false) {
-            const status = document.getElementById("status");
+            const status      = document.getElementById("status");
+            const chartInner  = document.getElementById("chartInner");
+            const currentFunc = document.getElementById("currentFunc");
 
-            // 🔒 1) 로그인 안 되어 있으면 막기
+            // 🔒 로그인 안 되어 있으면 막기
             if (!window.currentUser) {
                 if (status) {
                     status.textContent = "Please log in to use mAutoFlow.";
-                    status.className = "error";
-                }
-                return;
-            }
-
-            // 🔒 2) 무료 5회 사용 제한 체크
-            const used = getUsageCount();
-            if (used >= FREE_LIMIT) {
-                if (status) {
-                    status.textContent = "Free quota (5 diagrams) used. Thank you for testing mAutoFlow.";
-                    status.className = "error";
-                }
-                const chartInner = document.getElementById("chartInner");
-                const currentFunc = document.getElementById("currentFunc");
-                if (chartInner) {
-                    chartInner.innerHTML = `
-                        <p class="placeholder" style="color:#b91c1c;">
-                            Free usage limit reached. Please contact the developer if you need more runs.
-                        </p>`;
-                }
-                if (currentFunc) {
-                    currentFunc.textContent = "";
+                    status.className   = "error";
                 }
                 return;
             }
 
             const src = document.getElementById("src").value;
-            const chartInner = document.getElementById("chartInner");
-            const currentFunc = document.getElementById("currentFunc");
+            let usage = null;   // 오늘 사용량 캐시
+
+            // 코드가 있고, 오늘 이미 무료 5회를 사용했다면 막기
+            if (src.trim()) {
+                usage = getTodayUsage();
+                if (usage.count >= DAILY_FREE_LIMIT) {
+                    status.textContent = `Daily free limit reached (${DAILY_FREE_LIMIT} diagrams per day, up to ${FREE_NODE_LIMIT} nodes). Please try again tomorrow.`;
+                    status.className   = "error";
+                    return;
+                }
+            }
 
             // 새 코드/재생성 시마다 줌을 100%로 초기화
             diagramZoom = 1.0;
@@ -1310,15 +1347,17 @@
 
                 const data = await res.json();
                 const mermaidCode = data.mermaid || "";
-                const errorMsg = data.error || "";
-                const funcName = data.func_name || "";
-                const nodeLines = data.node_lines || {};
+                const errorMsg    = data.error || "";
+                const funcName    = data.func_name || "";
+                const nodeLines   = data.node_lines || {};
 
                 // === 노드 개수 계산 ===
                 const nodeCount = Object.keys(nodeLines).length;
+
+                // node count 전역 저장(나중에 결제 제한 등에 사용)
                 window.__nodeCount = nodeCount;
 
-                // 헤더에 Nodes: XX 표시 (노드 초과여도 현재 개수는 보여 주자)
+                // === Automatic analysis → Node: XX 로 변경 ===
                 const codeHeader = document.getElementById("codeHeader");
                 if (codeHeader) {
                     codeHeader.innerHTML = `
@@ -1326,6 +1365,11 @@
                         <span style="opacity:0.7;">Nodes: ${nodeCount}</span>
                     `;
                 }
+
+                // === 여기까지 왔으면, 정상 생성 + 노드 제한 통과 → 오늘 사용량 +1 ===
+                let usageNow = getTodayUsage();
+                usageNow.count += 1;
+                saveTodayUsage(usageNow);
 
                 // 노드 → 라인번호 맵 전역 저장
                 window.__nodeLines = nodeLines;
@@ -1363,8 +1407,9 @@
                     return;
                 }
 
-                status.textContent = auto ? "Refresh Complete." : "Flowchart creation complete.";
-                status.className = "success";
+                const msgBase = auto ? "Refresh Complete." : "Flowchart creation complete.";
+                status.textContent = `${msgBase} (Today: ${usageNow.count}/${DAILY_FREE_LIMIT})`;
+                status.className   = "success";
                 currentFunc.textContent = funcName ? ("Function: " + funcName + "()") : "";
 
                 chartInner.innerHTML = '<div class="mermaid">' + mermaidCode + '</div>';
@@ -1373,9 +1418,6 @@
 
                 applyDiagramZoom();
                 setTimeout(attachNodeClickHandlers, 50);
-
-                // 성공적으로 그렸으면 사용량 +1
-                incrementUsageCount();
 
             } catch (err) {
                 console.error(err);
