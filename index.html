@@ -1286,45 +1286,38 @@
 
             // 🔒 로그인 안 되어 있으면 막기
             if (!window.currentUser) {
-                if (status) {
-                    status.textContent = "Please log in to use mAutoFlow.";
-                    status.className   = "error";
-                }
+                status.textContent = "Please log in to use mAutoFlow.";
+                status.className   = "error";
                 return;
             }
 
-            const src = document.getElementById("src").value;
-            let usage = null;   // 오늘 사용량 캐시
-
-            // 코드가 있고, 오늘 이미 무료 5회를 사용했다면 막기
-            if (src.trim()) {
-                usage = getTodayUsage();
-                if (usage.count >= DAILY_FREE_LIMIT) {
-                    status.textContent = `Daily free limit reached (${DAILY_FREE_LIMIT} diagrams per day, up to ${FREE_NODE_LIMIT} nodes). Please try again tomorrow.`;
-                    status.className   = "error";
-                    return;
-                }
+            const src = document.getElementById("src").value.trim();
+            if (!src) {
+                status.textContent = auto ? "" : "Enter the C code on the left.";
+                status.className   = auto ? "" : "error";
+                currentFunc.textContent = "";
+                chartInner.innerHTML = `
+                    <p class="placeholder">
+                        When you enter C code on the left, a flowchart is automatically generated on the right.
+                    </p>`;
+                return;
             }
 
-            // 새 코드/재생성 시마다 줌을 100%로 초기화
+            // 🔒 하루 사용량 제한 (5회)
+            const usage = getTodayUsage();
+            if (usage.count >= DAILY_FREE_LIMIT) {
+                status.textContent =
+                    `Daily free limit reached (${DAILY_FREE_LIMIT} diagrams per day, up to ${FREE_NODE_LIMIT} nodes). Please try again tomorrow.`;
+                status.className = "error";
+                return;
+            }
+
+            // 줌 초기화
             diagramZoom = 1.0;
             updateZoomLabel();
 
-            if (!src.trim()) {
-                if (!auto) {
-                    status.textContent = "Enter the C code on the left.";
-                    status.className = "error";
-                } else {
-                    status.textContent = "";
-                    status.className = "";
-                }
-                currentFunc.textContent = "";
-                chartInner.innerHTML = '<p class="placeholder">When you enter C code on the left, a flowchart is automatically generated on the right.</p>';
-                return;
-            }
-
             status.textContent = auto ? "Automatically updating..." : "Creating a flowchart...";
-            status.className = "";
+            status.className   = "";
             chartInner.innerHTML = "";
 
             const formData = new FormData();
@@ -1339,7 +1332,7 @@
 
                 if (!res.ok) {
                     status.textContent = "Server error: " + res.status;
-                    status.className = "error";
+                    status.className   = "error";
                     chartInner.innerHTML = '<p class="placeholder">A server error occurred.</p>';
                     currentFunc.textContent = "";
                     return;
@@ -1351,79 +1344,64 @@
                 const funcName    = data.func_name || "";
                 const nodeLines   = data.node_lines || {};
 
-                // === 노드 개수 계산 ===
+                if (errorMsg) {
+                    status.textContent = "Error: " + errorMsg;
+                    status.className   = "error";
+                    chartInner.innerHTML = `<p class="placeholder" style="color:#b91c1c;">${errorMsg}</p>`;
+                    currentFunc.textContent = "";
+                    return;
+                }
+
+                // 노드 수 계산
                 const nodeCount = Object.keys(nodeLines).length;
-
-                // node count 전역 저장(나중에 결제 제한 등에 사용)
                 window.__nodeCount = nodeCount;
+                window.__nodeLines = nodeLines;
 
-                // === Automatic analysis → Node: XX 로 변경 ===
+                // 헤더 갱신
                 const codeHeader = document.getElementById("codeHeader");
                 if (codeHeader) {
                     codeHeader.innerHTML = `
                         <span>mAutoFlow</span>
-                        <span style="opacity:0.7;">Nodes: ${nodeCount}</span>
-                    `;
+                        <span style="opacity:0.7;">Nodes: ${nodeCount}</span>`;
                 }
 
-                // === 여기까지 왔으면, 정상 생성 + 노드 제한 통과 → 오늘 사용량 +1 ===
-                let usageNow = getTodayUsage();
-                usageNow.count += 1;
-                saveTodayUsage(usageNow);
-
-                // 노드 → 라인번호 맵 전역 저장
-                window.__nodeLines = nodeLines;
-
-                // 🔒 노드 수 제한 체크 (무료 플랜: 최대 FREE_NODE_LIMIT)
+                // 🔒 무료 버전 노드 제한
                 if (nodeCount > FREE_NODE_LIMIT) {
                     status.textContent =
-                        `Free plan is limited to ${FREE_NODE_LIMIT} nodes per diagram. ` +
-                        `This function has ${nodeCount} nodes.`;
+                        `This function has ${nodeCount} nodes, exceeding the free limit (${FREE_NODE_LIMIT}).`;
                     status.className = "error";
 
                     chartInner.innerHTML = `
                         <p class="placeholder" style="color:#b91c1c;">
-                            This diagram has ${nodeCount} nodes, which exceeds the free limit (${FREE_NODE_LIMIT}).
-                            Please try a smaller function or contact the developer for full access.
+                            Free version supports up to ${FREE_NODE_LIMIT} nodes.
                         </p>`;
                     currentFunc.textContent = "";
-                    // 이 경우에는 사용 횟수는 차감하지 않음
+                    // ❌ 사용량 증가 없음
                     return;
                 }
 
-                if (errorMsg) {
-                    status.textContent = "Error: " + errorMsg;
-                    status.className = "error";
-                    chartInner.innerHTML = '<p class="placeholder" style="color:#b91c1c;">' + errorMsg + '</p>';
-                    currentFunc.textContent = "";
-                    return;
-                }
-
-                if (!mermaidCode.trim()) {
-                    status.textContent = "The code is empty. Please check that the function is correct.";
-                    status.className = "error";
-                    chartInner.innerHTML = '<p class="placeholder">The body of the function could not be found.</p>';
-                    currentFunc.textContent = "";
-                    return;
-                }
-
-                const msgBase = auto ? "Refresh Complete." : "Flowchart creation complete.";
-                status.textContent = `${msgBase} (Today: ${usageNow.count}/${DAILY_FREE_LIMIT})`;
-                status.className   = "success";
-                currentFunc.textContent = funcName ? ("Function: " + funcName + "()") : "";
-
-                chartInner.innerHTML = '<div class="mermaid">' + mermaidCode + '</div>';
-                const element = chartInner.querySelector(".mermaid");
-                mermaid.init(undefined, element);
-
+                // 정상 플로우차트 생성
+                chartInner.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+                mermaid.init(undefined, chartInner.querySelector(".mermaid"));
                 applyDiagramZoom();
                 setTimeout(attachNodeClickHandlers, 50);
+
+                // ⭐ 여기서만 오늘 사용량 증가
+                let usageNow = getTodayUsage();
+                usageNow.count += 1;
+                saveTodayUsage(usageNow);
+
+                status.textContent =
+                    `${auto ? "Refresh Complete." : "Flowchart creation complete."} (Today: ${usageNow.count}/${DAILY_FREE_LIMIT})`;
+                status.className = "success";
+
+                currentFunc.textContent = funcName ? `Function: ${funcName}()` : "";
 
             } catch (err) {
                 console.error(err);
                 status.textContent = "An error occurred during the request.";
-                status.className = "error";
-                chartInner.innerHTML = '<p class="placeholder" style="color:#b91c1c;">An error occurred during the request.</p>';
+                status.className   = "error";
+                chartInner.innerHTML = `<p class="placeholder" style="color:#b91c1c;">An error occurred during the request.</p>`;
                 currentFunc.textContent = "";
             }
         }
