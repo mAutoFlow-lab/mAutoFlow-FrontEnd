@@ -1362,19 +1362,28 @@
                 // ① Supabase에서 access_token 가져오기
                 let accessToken = null;
                 try {
-                    const { data, error } = await supabase.auth.getSession();
-                    if (!error && data?.session?.access_token) {
-                        accessToken = data.session.access_token;
+                    const { data, error } = await supabase.auth.getUser();
+                    // data.user 가 있고 session 이 있으면 토큰 읽기
+                    const session = supabase.auth.getSession
+                        ? (await supabase.auth.getSession()).data.session
+                        : null;
+
+                    if (session?.access_token) {
+                        accessToken = session.access_token;
                     }
                 } catch (e) {
-                    console.warn("Failed to get Supabase session", e);
+                    console.warn("Failed to get Supabase user/session", e);
                 }
+
 
                 // 여기서 FormData 에 access_token 필드를 넣어준다
                 if (accessToken) {
+                    console.log(
+                        "accessToken from Supabase:",
+                        accessToken.slice(0, 20) + "..."   // 앞 20글자만 찍어서 길이 확인
+                    );
                     formData.append("access_token", accessToken);
                 } else {
-                    // 혹시라도 토큰이 없으면 바로 에러 처리
                     setStatus("error", "Login session not found. Please log in again.");
                     return;
                 }
