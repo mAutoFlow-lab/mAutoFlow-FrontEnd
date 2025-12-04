@@ -1016,77 +1016,36 @@
             highlightNodesForLine(lineIdx);
         }
 
-        // lineIdx 주변에서 라벨과 가장 잘 맞는 줄을 찾아서 하이라이트
-        // -> 최종 선택한 라인 인덱스를 반환
-        function highlightCodeAtLine(lineIdx, rawLabel) {
+        // lineIdx 에 해당하는 줄을 그대로 하이라이트 (fallback 용)
+        function highlightCodeAtLine(lineIdx) {
             const textarea = document.getElementById("src");
             if (!textarea) return -1;
 
-            const code = textarea.value;
+            const code  = textarea.value;
             const lines = code.split("\n");
             if (!lines.length) return -1;
 
-            // 기본 인덱스 범위 보정
+            // 인덱스 보정
             let idx = lineIdx;
             if (idx < 0) idx = 0;
             if (idx >= lines.length) idx = lines.length - 1;
 
-            const normLabel = normalizeForMatch(rawLabel);
-
-            // node_lines 가 가리키는 줄이 라벨과 안 맞으면,
-            // 주변 몇 줄(±4줄) 안에서 라벨과 제일 잘 매칭되는 줄을 다시 찾는다.
-            if (normLabel) {
-                const normBase = normalizeForMatch(lines[idx]);
-                const baseOK =
-                    normBase === normLabel ||
-                    normBase.indexOf(normLabel) !== -1 ||
-                    normLabel.indexOf(normBase) !== -1;
-
-                if (!baseOK) {
-                    let bestIdx = idx;
-                    let found = false;
-                    const MAX_OFFSET = 4;  // 위/아래 4줄까지 검색
-
-                    for (let d = 1; d <= MAX_OFFSET && !found; d++) {
-                        const candidates = [];
-                        if (idx - d >= 0) candidates.push(idx - d);
-                        if (idx + d < lines.length) candidates.push(idx + d);
-
-                        for (const i of candidates) {
-                            const nl = normalizeForMatch(lines[i]);
-                            if (!nl) continue;
-
-                            if (
-                                nl === normLabel ||
-                                nl.indexOf(normLabel) !== -1 ||
-                                normLabel.indexOf(nl) !== -1
-                            ) {
-                                bestIdx = i;
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    idx = bestIdx;
-                }
-            }
-
-            // 최종 선택된 idx 라인 하이라이트
+            // 선택 범위 계산
             let start = 0;
             for (let i = 0; i < idx; i++) {
-                start += lines[i].length + 1; // '\n' 포함
+                start += lines[i].length + 1; // '\n'
             }
             const end = start + lines[idx].length;
 
             textarea.focus();
             textarea.setSelectionRange(start, end);
 
-            const ratio = idx / Math.max(1, lines.length - 1);
+            // 가운데 쯤으로 스크롤
+            const ratio        = idx / Math.max(1, lines.length - 1);
             const targetScroll = textarea.scrollHeight * ratio - textarea.clientHeight / 2;
             textarea.scrollTop = Math.max(0, targetScroll);
 
-            return idx;  // ✅ 최종 라인 번호 반환
+            return idx;
         }
 
 
@@ -1242,20 +1201,20 @@
                 node.addEventListener("click", () => {
                     if (!textarea) return;
 
-                    // 추가: 노드 하이라이트는 “내가 클릭한 이 노드”로 고정
+                    // 선택된 노드 하이라이트
                     clearNodeHighlight();
                     node.classList.add("autoflow-selected");
                     scrollNodeIntoCenter(node);
 
-                    // Mermaid가 노드 id를 보통 'flowchart-N1' 같은 형태로 만듦
+                    // node id -> N1, N2 ...
                     const rawId = node.getAttribute("id") || "";
                     let nodeKey = rawId;
                     const m = rawId.match(/(?:flowchart-)?(N\d+)/);
                     if (m) {
-                        nodeKey = m[1];   // N1, N2 ...
+                        nodeKey = m[1];
                     }
 
-                    // 노드에 표시된 텍스트
+                    // 노드 라벨 텍스트
                     const rawText = node.textContent || "";
                     let label = rawText.replace(/\s+/g, " ").trim();
                     if (!label) return;
@@ -1265,23 +1224,22 @@
                     if (lower.startsWith("start")) return;
                     if (lower.startsWith("end")) return;
 
-                    // 1) node_lines 라인 번호가 있으면 우선 사용하되,
-                    //    내용이 안 맞으면 문자열 매칭으로 다시 찾는 fallback 사용
+                    // node_lines에서 온 라인 번호는 "힌트"로만 사용
                     const mapped = nodeLines[nodeKey];
-                    if (typeof mapped === "number") {
-                        const finalIdx = highlightCodeAtLine(mapped, label);  // 코드 쪽 하이라이트만
-                        if (finalIdx < 0) {
-                            // 라인 매핑이 애매하면 문자열 기반 fallback
-                            highlightCodeForLabel(label, mapped);
-                        }
-                        return;
+                    const approxHint =
+                        (typeof mapped === "number") ? mapped : null;
+
+                    // 1차: 항상 문자열 기반 매칭 사용
+                    let bestLine = highlightCodeForLabel(label, approxHint);
+
+                    // 2차: 텍스트 매칭이 완전히 실패한 경우에만
+                    //      node_lines 라인 번호 그대로 사용 (fallback)
+                    if (bestLine < 0 && typeof mapped === "number") {
+                        bestLine = highlightCodeAtLine(mapped);
                     }
 
-                    // -----------------------------
-                    // 2) node_lines 정보가 없으면 문자열 매칭으로 찾기
-                    // -----------------------------
-                    const bestLine = highlightCodeForLabel(label, null);
-                    // 코드만 하이라이트하면 충분, 따로 그래프 노드 선택 다시 안 함
+                    // bestLine 은 highlightCodeForLabel / highlightCodeAtLine 안에서
+                    // 이미 selection + scroll 을 처리하므로 여기서 따로 할 일은 없음
                 });
             });
         }
