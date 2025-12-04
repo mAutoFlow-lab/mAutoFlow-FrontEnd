@@ -1359,9 +1359,7 @@
             formData.append("branch_shape", currentBranchShape);
 
             try {
-                // ============================================
                 // ① Supabase에서 access_token 가져오기
-                // ============================================
                 let accessToken = null;
                 try {
                     const { data, error } = await supabase.auth.getSession();
@@ -1372,20 +1370,18 @@
                     console.warn("Failed to get Supabase session", e);
                 }
 
-                // ② fetch 헤더 구성
-                const headers = {};
+                // 여기서 FormData 에 access_token 필드를 넣어준다
                 if (accessToken) {
-                    headers["Authorization"] = `Bearer ${accessToken}`;
-                    // 백엔드가 읽을 수 있도록 폼 필드에도 같이 넣어준다
                     formData.append("access_token", accessToken);
+                } else {
+                    // 혹시라도 토큰이 없으면 바로 에러 처리
+                    setStatus("error", "Login session not found. Please log in again.");
+                    return;
                 }
-                // ============================================
-                // 여기까지가 추가되는 부분
-                // ============================================
 
+                // Authorization 헤더는 굳이 필요 없음 → 빼버려도 됨
                 const res = await fetch(API_BASE + "/api/convert_text", {
                     method: "POST",
-                    headers,      // 여기에 headers 추가!
                     body: formData
                 });
 
