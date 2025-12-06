@@ -812,15 +812,6 @@
             overlay.classList.add("modal-hidden");
         }
 
-        function extractNodeKey(node) {
-            if (!node || !node.id) return null;
-
-            // 예: "flowchart-0-N1" 또는 그냥 "N1"
-            const id = node.id;
-            const parts = id.split("-");
-            return parts[parts.length - 1];   // 마지막 조각: "N1"
-        }
-
         // ============================
         //  Download 헬퍼들
         // ============================
@@ -1119,6 +1110,13 @@
             highlight.style.display = "none";
         }
 
+        // 붉은 하이라이트 제거
+        function clearHoverLine() {
+            const highlight = document.getElementById("hoverHighlight");
+            if (!highlight) return;
+            highlight.style.display = "none";
+        }
+
 
         // 선택된 노드 하이라이트 해제
         function clearNodeHighlight() {
@@ -1165,29 +1163,48 @@
 
         // 특정 라인 번호에 "가장 잘 맞는" 노드를 찾아 하이라이트 + 스크롤
         function highlightNodesForLine(lineIdx) {
-            const nodeLines = window.__nodeLines || {};
-            let bestNode = null;
-            let bestDist = 99999;
+            const svg = document.querySelector("#chartInner svg");
+            if (!svg) return;
 
-            for (const id in nodeLines) {
-                const idx = nodeLines[id] - 1;
-                const d = Math.abs(idx - lineIdx);
-                if (d < bestDist) {
-                    bestDist = d;
-                    bestNode = id;
-                }
+            const textarea = document.getElementById("src");
+            if (!textarea) return;
+
+            const code = textarea.value || "";
+            const lines = code.split("\n");
+            if (!lines.length) return;
+
+            let idx = lineIdx;
+            if (idx < 0) idx = 0;
+            if (idx >= lines.length) idx = lines.length - 1;
+
+            const normLine = normalizeForMatch(lines[idx]);
+            if (!normLine) {
+                return;
             }
+
+            const nodes = svg.querySelectorAll(".node");
+            let bestNode = null;
+            let bestScore = 0;
+
+            nodes.forEach(node => {
+                const coreLabel = getNodeLabelCore(node);
+                const normLabel = normalizeForMatch(coreLabel);
+                if (!normLabel) return;
+
+                const score = calcMatchScore(normLine, normLabel);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestNode = node;
+                }
+            });
 
             if (!bestNode) return;
 
-            clearNodeHighlight();
+            // (삭제) clearNodeHighlight();
+            // (삭제) bestNode.classList.add("autoflow-selected");
+            // (삭제) scrollNodeIntoCenter(bestNode);
 
-            const svg = document.querySelector("#chartInner svg");
-            const node = svg.querySelector(`#${bestNode}`);
-            if (node) {
-                node.classList.add("autoflow-selected");
-                scrollNodeIntoCenter(node);   // 이 줄 다시 추가
-            }
+            // 우측 노드 선택 표시 안 함 (hover 상태일 때만 표시됨)
         }
 
 
@@ -1317,24 +1334,17 @@
                     if (!label) return;
 
                     const lower = label.toLowerCase();
+                    // 의미 없는 노드는 건너뜀
                     if (lower === "merge" || lower.startsWith("start") || lower.startsWith("end")) {
                         return;
                     }
 
-                    const nodeKey = extractNodeKey(node);
-                    const mapped  = window.__nodeLines?.[nodeKey];
+                    // 라벨 텍스트만으로 가장 잘 맞는 코드 라인 선택
+                    highlightCodeForLabel(label);
 
-                    if (typeof mapped === "number") {
-                        // node_lines 기준 라인으로 바로 점프
-                        highlightCodeAtLine(mapped - 1);
-                    } else {
-                        // 백업: 기존 텍스트 매칭
-                        highlightCodeForLabel(label);
-                    }
-
+                    // 클릭하면 hover 붉은 줄은 지워준다
                     clearHoverLine();
                 });
-
 
                 // 노드 hover → 붉은 테두리 + 좌측 붉은 줄
                 node.addEventListener("mouseenter", () => {
@@ -1353,17 +1363,12 @@
                         return;
                     }
 
-                    const nodeKey = extractNodeKey(node); // N1, N2, …
-                    const mapped = window.__nodeLines?.[nodeKey];
-
-                    if (typeof mapped === "number") {
-                        showHoverLine(mapped - 1); // 0-based 변환
-                    } else {
-                        // fallback: old fuzzy matching
-                        const bestLine = findBestLineIndexForLabel(label);
+                    const bestLine = findBestLineIndexForLabel(label);
+                    if (bestLine >= 0) {
                         showHoverLine(bestLine);
+                    } else {
+                        clearHoverLine();
                     }
-
                 });
 
                 node.addEventListener("mouseleave", () => {
