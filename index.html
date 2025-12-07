@@ -1605,7 +1605,13 @@ const HELP_TEXT_HTML = `
                     );
                 }
 
-                currentFunc.textContent = funcName ? `Function: ${funcName}()` : "";
+                // Function name 출력 방식 반영 (Short / Full)
+                let displayName = funcName;
+                if (funcNameStyle === "full" && data.full_signature) {
+                    displayName = data.full_signature;
+                }
+
+                currentFunc.textContent = displayName ? `Function: ${displayName}` : "";
 
                 // 상단 무료 정책 안내 갱신
                 updateQuotaInfo();
@@ -1725,6 +1731,33 @@ const HELP_TEXT_HTML = `
                     }
                 });
             });
+
+            // ============================
+            // Function Name Display 초기화
+            // ============================
+            let funcNameStyle = "short";
+
+            try {
+                const savedStyle = localStorage.getItem("autoflow-funcname-style");
+                if (savedStyle) funcNameStyle = savedStyle;
+            } catch (e){}
+
+            const funcNameRadios = document.querySelectorAll('input[name="funcNameStyle"]');
+            funcNameRadios.forEach(r => {
+                if (r.value === funcNameStyle) {
+                    r.checked = true;
+                }
+                r.addEventListener("change", (e) => {
+                    if (e.target.checked) {
+                        funcNameStyle = e.target.value;
+                        try {
+                            localStorage.setItem("autoflow-funcname-style", funcNameStyle);
+                        } catch(e){}
+                        generateFlowchart(true);   // 화면 즉시 반영
+                    }
+                });
+            });
+
 
             updateZoomLabel();
             setupSplitDrag();
@@ -1917,15 +1950,15 @@ void main(void)
 
             <!-- Branch Shape 섹션 추가 -->
             <div class="modal-section">
-                <div class="modal-section-title">Branch Shape</div>
+                <div class="modal-section-title">Function Name Display</div>
                 <div class="modal-radio-row">
                     <label>
-                        <input type="radio" name="branchShape" value="rounded" checked />
-                        Rounded (Stadium / Rounded rectangle)
+                        <input type="radio" name="funcNameStyle" value="short" checked />
+                        Short (Function name only)
                     </label>
                     <label>
-                        <input type="radio" name="branchShape" value="diamond" />
-                        Diamond
+                        <input type="radio" name="funcNameStyle" value="full" />
+                        Full (Return type + name + parameters)
                     </label>
                 </div>
             </div>
