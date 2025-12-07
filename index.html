@@ -1424,6 +1424,7 @@ const HELP_TEXT_HTML = `
             const formData = new FormData();
             formData.append("source_code", src);
             formData.append("branch_shape", currentBranchShape);
+            formData.append("func_name_style", funcNameStyle);
 
             try {
                 // ① Supabase에서 access_token 가져오기
