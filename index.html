@@ -404,6 +404,10 @@
         }
       
     </style>
+
+    // 전역 선언 (어디서든 접근 가능)
+    let funcNameStyle = "short";
+    
     <script>
         const API_BASE = "https://mautoflow-backend.onrender.com";
 	mermaid.initialize({ startOnLoad: false });
@@ -1736,7 +1740,6 @@ const HELP_TEXT_HTML = `
             // ============================
             // Function Name Display 초기화
             // ============================
-            let funcNameStyle = "short";
 
             try {
                 const savedStyle = localStorage.getItem("autoflow-funcname-style");
@@ -1750,11 +1753,9 @@ const HELP_TEXT_HTML = `
                 }
                 r.addEventListener("change", (e) => {
                     if (e.target.checked) {
-                        funcNameStyle = e.target.value;
-                        try {
-                            localStorage.setItem("autoflow-funcname-style", funcNameStyle);
-                        } catch(e){}
-                        generateFlowchart(true);   // 화면 즉시 반영
+                        funcNameStyle = e.target.value;   // ✔ 전역 변수에 저장됨
+                        localStorage.setItem("autoflow-funcname-style", funcNameStyle);
+                        generateFlowchart(true);
                     }
                 });
             });
