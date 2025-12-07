@@ -405,12 +405,13 @@
       
     </style>
 
-    // 전역 선언 (어디서든 접근 가능)
-    let funcNameStyle = "short";
-    
+
     <script>
         const API_BASE = "https://mautoflow-backend.onrender.com";
 	mermaid.initialize({ startOnLoad: false });
+
+	// 전역 선언 (어디서든 접근 가능)
+        let funcNameStyle = "short";
 
 	// 서버에서 내려준 사용량 / 한도 (없으면 null)
         window.__serverUsageCount = null;
@@ -1956,7 +1957,7 @@ void main(void)
                 <div class="modal-radio-row">
                     <label>
                         <input type="radio" name="branchShape" value="rounded" checked />
-                        Rounded (Stadium / Rounded rectangle)
+                        Rounded
                     </label>
                     <label>
                         <input type="radio" name="branchShape" value="diamond" />
@@ -1971,11 +1972,11 @@ void main(void)
                 <div class="modal-radio-row">
                     <label>
                         <input type="radio" name="funcNameStyle" value="short" checked />
-                        Short (Function name only)
+                        Short
                     </label>
                     <label>
                         <input type="radio" name="funcNameStyle" value="full" />
-                        Full (Return type + name + parameters)
+                        Full
                     </label>
                 </div>
             </div>
