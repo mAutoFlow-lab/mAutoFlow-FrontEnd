@@ -342,6 +342,17 @@
             animation: codeSoftBlink 2.4s ease-in-out infinite; /* 더 느리고 부드럽게 */
         }
 
+        /* Upgrade 버튼 블링크 애니메이션 */
+        @keyframes upgradeBlink {
+            0%   { background-color: #a7f3d0; }  /* pastel green */
+            50%  { background-color: #6ee7b7; }
+            100% { background-color: #a7f3d0; }
+        }
+
+        .upgrade-blink {
+            animation: upgradeBlink 1s infinite;
+        }
+
         @keyframes codeSoftBlink {
             0%, 100% {
                 opacity: 1;
@@ -1654,6 +1665,11 @@ const HELP_TEXT_HTML = `
                                     Free tier supports up to ${FREE_NODE_LIMIT} nodes per diagram.
                                 </p>`;
                             currentFunc.textContent = "";
+
+                            // Upgrade 버튼 파스텔 연두색 블링크 추가
+                            const ub = document.getElementById("upgradeButton");
+                            if (ub) ub.classList.add("upgrade-blink");
+                            
                             return;
                         }
                     }
@@ -1672,23 +1688,34 @@ const HELP_TEXT_HTML = `
                 }
 
                 // 사용량 증가 없이, 메시지만 표시
+                // ✅ 여기서 플로우차트가 "성공적으로" 생성되면
+                //    UPGRADE 버튼 깜빡임은 항상 끈다.
                 if (!isTestUser) {
                     if (window.__isProUser) {
                         setStatus(
                             "success",
                             `${auto ? "Refresh complete." : "Flowchart creation complete."} Pro plan: up to ${PRO_NODE_LIMIT} nodes per diagram.`
                         );
+
+                        const ub = document.getElementById("upgradeButton");
+                        if (ub) ub.classList.remove("upgrade-blink");
                     } else {
                         setStatus(
                             "success",
                             `Refresh complete. Free tier: 5 diagrams/day, ≤ ${FREE_NODE_LIMIT} nodes.`
                         );
+
+                        const ub = document.getElementById("upgradeButton");
+                        if (ub) ub.classList.remove("upgrade-blink");
                     }
                 } else {
                     setStatus(
                         "success",
                         `${auto ? "Refresh Complete." : "Flowchart creation complete."} (Test account: unlimited)`
                     );
+
+                    const ub = document.getElementById("upgradeButton");
+                    if (ub) ub.classList.remove("upgrade-blink");
                 }
 
                 // Function name 출력 방식 반영 (Short / Full)
@@ -2198,13 +2225,19 @@ void main(void)
 
                 // UPGRADE 버튼: 테스트 계정은 숨기고, 나머지는 일단 표시
                 if (upgradeBtn) {
+                    // 로그인할 때는 일단 깜빡임 제거
+                    upgradeBtn.classList.remove("upgrade-blink");
                     upgradeBtn.style.display = isTestUser ? "none" : "inline-flex";
                 }
             } else {
                 welcomeText.textContent = "";
                 loggedOutDiv.style.display = "inline-flex";
                 loggedInDiv.style.display  = "none";
-                if (upgradeBtn) upgradeBtn.style.display = "none";
+                if (upgradeBtn) {
+                    upgradeBtn.style.display = "none";
+                    // 로그아웃 시에도 깜빡임 제거
+                    upgradeBtn.classList.remove("upgrade-blink");
+                }
             }
 
             // 로그인/로그아웃 시 무료 사용량 표시 갱신
