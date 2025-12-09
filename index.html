@@ -311,7 +311,7 @@
             fill: #000000;
         }
 
-        ..topbar-right {
+        .topbar-right {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -427,8 +427,6 @@
           window.location.href = PRO_CHECKOUT_URL;
         }
 
-	mermaid.initialize({ startOnLoad: false });
-        
 	mermaid.initialize({ startOnLoad: false });
 
 	// 전역 선언 (어디서든 접근 가능)
@@ -2310,7 +2308,7 @@ void main(void)
             }
 
             // 로그인/로그아웃 시 무료 사용량 표시 갱신
-            // updateQuotaInfo();
+            updateQuotaInfo();
         }
 
         async function loginWithGoogle() {
