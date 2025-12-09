@@ -1576,9 +1576,14 @@ const HELP_TEXT_HTML = `
                 const fullSignature = data.full_signature || "";   // 추가
                 const nodeLines   = data.node_lines || {};
 
-                // Pro 여부 저장
+                // is_pro 처리 직후에 추가
                 if (typeof data.is_pro === "boolean") {
                     window.__isProUser = data.is_pro;
+
+                    const upgradeBtn = document.getElementById("upgradeButton");
+                    if (upgradeBtn) {
+                        upgradeBtn.style.display = window.__isProUser ? "none" : "inline-flex";
+                    }
                 }                
 
                 // 서버에서 내려준 사용량 정보 (일반 계정인 경우)
@@ -1635,10 +1640,17 @@ const HELP_TEXT_HTML = `
 
                 // 사용량 증가 없이, 메시지만 표시
                 if (!isTestUser) {
-                    setStatus(
-                        "success",
-                        "Refresh Complete. Free tier: 5 diagrams/day, ≤ 20 nodes."
-                    );
+                    if (window.__isProUser) {
+                        setStatus(
+                            "success",
+                            `${auto ? "Refresh complete." : "Flowchart creation complete."} Pro plan: unlimited diagrams.`
+                        );
+                    } else {
+                        setStatus(
+                            "success",
+                            "Refresh complete. Free tier: 5 diagrams/day, ≤ 20 nodes."
+                        );
+                    }
                 } else {
                     setStatus(
                         "success",
@@ -2143,7 +2155,18 @@ void main(void)
                     : "Welcome!";
                 loggedOutDiv.style.display = "none";
                 loggedInDiv.style.display  = "inline-flex";
-                if (upgradeBtn) upgradeBtn.style.display = "inline-flex";
+
+                const isTestUser = (user.email === TEST_EMAIL);
+
+                // 로그인 할 때는 일단 Pro 플래그 초기화 (서버가 다시 알려줄 것)
+                if (!isTestUser) {
+                    window.__isProUser = false;
+                }
+
+                // UPGRADE 버튼: 테스트 계정은 숨기고, 나머지는 일단 표시
+                if (upgradeBtn) {
+                    upgradeBtn.style.display = isTestUser ? "none" : "inline-flex";
+                }
             } else {
                 welcomeText.textContent = "";
                 loggedOutDiv.style.display = "inline-flex";
