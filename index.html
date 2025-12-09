@@ -442,6 +442,8 @@
         window.__isProUser      = false;
         window.__planName       = null;
         window.__isTestAccount  = false;
+        // free | pro | expert
+        window.__planTier       = "free";
 
 	let lastCountedSource = "";   // 마지막으로 사용량을 올렸던 소스 코드
 
@@ -452,6 +454,7 @@
         const DAILY_FREE_LIMIT = 5;       // 하루 무료 5회
         const FREE_NODE_LIMIT  = 20;      // Free: 노드 20개까지
         const PRO_NODE_LIMIT   = 200;     // Pro: 노드 200개까지
+        const EXPERT_NODE_LIMIT  = 1000;  // Expert: 노드 1000개까지
         const USAGE_KEY        = "autoflow_daily_usage";
 
         function getTodayKey() {
@@ -722,7 +725,17 @@ const HELP_TEXT_HTML = `
                 return;
             }
 
-            // Pro 유저: 서버에서 is_pro_user=true 내려준 경우
+            // Expert 유저 (plan_name 에 "Expert" 가 포함된 경우)
+            if (window.__planTier === "expert") {
+                const label = window.__planName
+                    ? `Expert (${window.__planName}): unlimited diagrams (≤ ${EXPERT_NODE_LIMIT} nodes).`
+                    : `Expert: unlimited diagrams (≤ ${EXPERT_NODE_LIMIT} nodes).`;
+                span.textContent = label;
+                span.title = `Your subscription is active (Expert plan, up to ${EXPERT_NODE_LIMIT} nodes per diagram).`;
+                return;
+            }
+
+            // Pro 유저 (일반 Pro)
             if (window.__isProUser) {
                 const label = window.__planName
                     ? `Pro (${window.__planName}): unlimited diagrams (≤ ${PRO_NODE_LIMIT} nodes).`
@@ -1603,10 +1616,22 @@ const HELP_TEXT_HTML = `
                 const fullSignature = data.full_signature || "";
                 const nodeLines     = data.node_lines || {};
 
-                // 백엔드에서 온 계정 상태 반영
-                window.__isProUser     = !!data.is_pro_user;
-                window.__planName      = data.plan_name || null;
-                window.__isTestAccount = !!data.is_test_account;
+                // ✅ 서버 응답 기반 계정 상태 반영
+                window.__isProUser      = !!data.is_pro_user;          // ← 반드시 !! (논리값)
+                window.__planName       = data.plan_name || null;
+                window.__isTestAccount  = !!data.is_test_account;
+
+                // ✅ 플랜 티어 판별 (간단 버전)
+                // - plan_name 에 "expert" 라는 단어가 들어 있으면 Expert 로 간주
+                //   (레몬 상품 이름에 Expert 를 넣어두면 자동 인식됨)
+                const planNameLower = (window.__planName || "").toLowerCase();
+                if (planNameLower.includes("expert")) {
+                    window.__planTier = "expert";
+                } else if (window.__isProUser) {
+                    window.__planTier = "pro";
+                } else {
+                    window.__planTier = "free";
+                }
 
                 // UPGRADE 버튼 표시/숨김
                 const upgradeBtn = document.getElementById("upgradeButton");
@@ -1646,10 +1671,26 @@ const HELP_TEXT_HTML = `
                 }
 
                 // 노드 제한 (테스트 계정은 무제한)
-                // - Free:  최대 20 nodes
-                // - Pro :  최대 200 nodes
+                // - Free   : 최대 20 nodes
+                // - Pro    : 최대 200 nodes
+                // - Expert : 최대 1000 nodes
                 if (!isTestUser) {
-                    if (window.__isProUser) {
+                    const tier = window.__planTier;
+
+                    if (tier === "expert") {
+                        // Expert 계정 노드 초과
+                        if (nodeCount > EXPERT_NODE_LIMIT) {
+                            const msg = `This function has ${nodeCount} nodes. The Expert plan supports up to ${EXPERT_NODE_LIMIT} nodes per diagram.`;
+                            setStatus("error", msg);
+
+                            chartInner.innerHTML = `
+                                <p class="placeholder" style="color:#b91c1c;">
+                                    Expert plan supports up to ${EXPERT_NODE_LIMIT} nodes per diagram.
+                                </p>`;
+                            currentFunc.textContent = "";
+                            return;
+                        }
+                    } else if (window.__isProUser) {
                         // Pro 계정 노드 초과
                         if (nodeCount > PRO_NODE_LIMIT) {
                             const msg = `This function has ${nodeCount} nodes. The Pro plan supports up to ${PRO_NODE_LIMIT} nodes per diagram.`;
@@ -1674,10 +1715,10 @@ const HELP_TEXT_HTML = `
                                 </p>`;
                             currentFunc.textContent = "";
 
-                            // Upgrade 버튼 파스텔 연두색 블링크 추가
+                            // Upgrade 버튼 파스텔 연두색 블링크 추가 (Free 에서만)
                             const ub = document.getElementById("upgradeButton");
                             if (ub) ub.classList.add("upgrade-blink");
-                            
+
                             return;
                         }
                     }
@@ -1699,22 +1740,24 @@ const HELP_TEXT_HTML = `
                 // ✅ 여기서 플로우차트가 "성공적으로" 생성되면
                 //    UPGRADE 버튼 깜빡임은 항상 끈다.
                 if (!isTestUser) {
-                    if (window.__isProUser) {
+                    const ub = document.getElementById("upgradeButton");
+                    if (ub) ub.classList.remove("upgrade-blink");
+
+                    if (window.__planTier === "expert") {
+                        setStatus(
+                            "success",
+                            `${auto ? "Refresh complete." : "Flowchart creation complete."} Expert plan: up to ${EXPERT_NODE_LIMIT} nodes per diagram.`
+                        );
+                    } else if (window.__isProUser) {
                         setStatus(
                             "success",
                             `${auto ? "Refresh complete." : "Flowchart creation complete."} Pro plan: up to ${PRO_NODE_LIMIT} nodes per diagram.`
                         );
-
-                        const ub = document.getElementById("upgradeButton");
-                        if (ub) ub.classList.remove("upgrade-blink");
                     } else {
                         setStatus(
                             "success",
                             `Refresh complete. Free tier: 5 diagrams/day, ≤ ${FREE_NODE_LIMIT} nodes.`
                         );
-
-                        const ub = document.getElementById("upgradeButton");
-                        if (ub) ub.classList.remove("upgrade-blink");
                     }
                 } else {
                     setStatus(
