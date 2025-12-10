@@ -1824,6 +1824,13 @@ const HELP_TEXT_HTML = `
                                     Daily free limit reached. Please try again tomorrow.
                                 </p>`;
                             currentFunc.textContent = "";
+
+                            // Free 계정 일일 한도 초과 시에도 UPGRADE 버튼 블링크 (Pro 업그레이드 유도)
+                            const ub = document.getElementById("upgradeButton");
+                            if (ub && !isTestUser) {
+                                ub.style.display = "inline-flex";
+                                ub.classList.add("upgrade-blink");
+                            }
                             return;
                         }
                     }
@@ -1936,11 +1943,14 @@ const HELP_TEXT_HTML = `
                 // UPGRADE 버튼 표시/숨김
                 const upgradeBtn = document.getElementById("upgradeButton");
                 if (upgradeBtn) {
-                    // 유료(Pro/Expert) 또는 테스트 계정이면 UPGRADE 숨김
-                    upgradeBtn.style.display =
-                        (window.__isProUser || window.__isTestAccount)
-                            ? "none"
-                            : "inline-flex";
+                    // Expert 플랜 또는 테스트 계정(exitgiveme)만 UPGRADE 숨김
+                    const tier = window.__planTier || (window.__isProUser ? "pro" : "free");
+                    const shouldHide =
+                        (tier === "expert") || window.__isTestAccount;
+
+                    upgradeBtn.style.display = shouldHide ? "none" : "inline-flex";
+                    // 정상 응답에서는 항상 깜빡임 초기화 (에러에서만 다시 켬)
+                    upgradeBtn.classList.remove("upgrade-blink");
                 }
 
                 // 서버에서 내려준 사용량 정보 (일반 계정인 경우)
@@ -2017,11 +2027,16 @@ const HELP_TEXT_HTML = `
                             </p>`;
                         currentFunc.textContent = "";
 
-                        // 🔸 UPGRADE 버튼 파스텔 연두색 블링크: "무료 계정"에서만 켜기
+                        // UPGRADE 버튼 파스텔 연두색 블링크
+                        // - Free : Pro로 업그레이드 유도
+                        // - Pro  : Expert로 업그레이드 유도
                         const ub = document.getElementById("upgradeButton");
-                        if (ub && !window.__isProUser && tier !== "expert" && !window.__isTestAccount) {
+                        if (ub && !window.__isTestAccount && tier !== "expert") {
+                            // 혹시 숨겨져 있었다면 다시 보이도록
+                            ub.style.display = "inline-flex";
                             ub.classList.add("upgrade-blink");
                         }
+
 
                         return;
                     }
