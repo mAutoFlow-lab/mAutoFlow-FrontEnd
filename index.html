@@ -1626,6 +1626,33 @@ const HELP_TEXT_HTML = `
                         data = await res.json();
                     } catch (_) {}
 
+                    // 에러 응답에도 계정/플랜 정보가 들어올 수 있으니 먼저 반영
+                    if (typeof data.is_pro_user !== "undefined") {
+                        window.__isProUser = !!data.is_pro_user;
+                    }
+                    if (typeof data.plan_name === "string") {
+                        window.__planName = data.plan_name || null;
+                    }
+                    if (typeof data.is_test_account !== "undefined") {
+                        window.__isTestAccount = !!data.is_test_account;
+                    }
+                    if (typeof data.plan_tier === "string") {
+                        window.__planTier = data.plan_tier || null;   // "free" | "pro" | "expert"
+                    }
+                    if (typeof data.node_limit === "number") {
+                        window.__nodeLimitFromServer = data.node_limit;
+                        window.__nodeLimit = data.node_limit;
+                    }
+                    if (typeof data.usage_count === "number") {
+                        window.__serverUsageCount = data.usage_count;
+                    }
+                    if (typeof data.daily_free_limit === "number") {
+                        window.__dailyFreeLimit = data.daily_free_limit;
+                    }
+                    // 상단 quota 라벨 업데이트
+                    updateQuotaInfo();
+                    
+
                     // 429: 하루 무료 사용량 초과
                     if (res.status === 429) {
                         let detail = data.detail;
@@ -1673,28 +1700,70 @@ const HELP_TEXT_HTML = `
                         }
                     }
 
-                    // 📌 노드 초과 에러 (400) 포함한 나머지 에러 처리
                     const errorCode = (data.error_code || data.error || "").toString().toUpperCase();
                     if (errorCode === "TOO_MANY_NODES") {
-                        const uiMsg = mapBackendError(errorCode, data.error);
-                        setStatus("error", uiMsg);
+                        // 플랜/노드 한도 계산
+                        const tier = window.__planTier || (window.__isProUser ? "pro" : "free");
+                        const isTestAccount = !!window.__isTestAccount;
+
+                        let nodeLimit = window.__nodeLimit;
+                        if (!Number.isFinite(nodeLimit)) {
+                            if (isTestAccount) {
+                                nodeLimit = Infinity; // 테스트 계정은 사실상 무제한, 여기 걸리면 엔진 자체 상한
+                            } else if (tier === "expert") {
+                                nodeLimit = EXPERT_NODE_LIMIT;
+                            } else if (window.__isProUser) {
+                                nodeLimit = PRO_NODE_LIMIT;
+                            } else {
+                                nodeLimit = FREE_NODE_LIMIT;
+                            }
+                        }
+
+                        // 백엔드에서 보내줄 수도 있는 실제 노드 수 (없으면 null)
+                        const nodeCountFromServer =
+                            typeof data.node_count === "number"
+                                ? data.node_count
+                                : (typeof data.actual_nodes === "number"
+                                    ? data.actual_nodes
+                                    : null);
+
+                        let msgText = "";
+                        let bannerText = "";
+
+                        if (isTestAccount || !Number.isFinite(nodeLimit)) {
+                            // 테스트 계정 + 엔진 글로벌 상한 등에 걸린 진짜 "너무 큼" 케이스
+                            msgText = mapBackendError(errorCode, data.error);
+                            bannerText = msgText;
+                        } else if (tier === "expert") {
+                            msgText = `This function has ${nodeCountFromServer ?? "too many"} nodes. The Expert plan supports up to ${nodeLimit} nodes per diagram.`;
+                            bannerText = `Expert plan supports up to ${nodeLimit} nodes per diagram.`;
+                        } else if (window.__isProUser) {
+                            // 🔹 Pro 유저
+                            msgText = `This function has ${nodeCountFromServer ?? "too many"} nodes. The Pro plan supports up to ${nodeLimit} nodes per diagram.`;
+                            bannerText = `Pro plan supports up to ${nodeLimit} nodes per diagram.`;
+                        } else {
+                            // 🔹 Free 유저
+                            msgText = `This function has ${nodeCountFromServer ?? "too many"} nodes. The free tier supports up to ${nodeLimit} nodes per diagram.`;
+                            bannerText = `Free tier supports up to ${nodeLimit} nodes per diagram.`;
+                        }
+
+                        setStatus("error", msgText);
                         chartInner.innerHTML = `
                             <p class="placeholder" style="color:#b91c1c;">
-                                ${uiMsg}
+                                ${bannerText}
                             </p>`;
                         currentFunc.textContent = "";
 
-                        // 🔹 무료 유저라면 여기서도 UPGRADE 버튼 블링크
-                        const isTestUser = (window.currentUser?.email === TEST_EMAIL);
-                        if (!isTestUser && !window.__isProUser) {
-                            const ub = document.getElementById("upgradeButton");
-                            if (ub) ub.classList.add("upgrade-blink");
+                        // 무료 계정에서만 업그레이드 버튼 깜빡임
+                        const ub = document.getElementById("upgradeButton");
+                        if (ub && !window.__isProUser && !isTestAccount) {
+                            ub.classList.add("upgrade-blink");
                         }
 
                         return;
                     }
 
-                    // 그 외 일반 서버 에러
+                                    // 그 외 일반 서버 에러
                     setStatus("error", `Server error (${res.status}). Please try again later.`);
                     chartInner.innerHTML = '<p class="placeholder">A server error occurred.</p>';
                     currentFunc.textContent = "";
