@@ -723,23 +723,27 @@ const HELP_TEXT_HTML = `
                 return;
             }
 
-            // Expert 유저 (plan_name 에 "Expert" 가 포함된 경우)
+            // Expert 유저
             if (window.__planTier === "expert") {
                 const label = window.__planName
-                    ? `Expert (${window.__planName}): unlimited diagrams (≤ ${EXPERT_NODE_LIMIT} nodes).`
-                    : `Expert: unlimited diagrams (≤ ${EXPERT_NODE_LIMIT} nodes).`;
+                    ? `Expert (${window.__planName}): 5 diagrams/day, ≤ ${EXPERT_NODE_LIMIT} nodes.`
+                    : `Expert: 5 diagrams/day, ≤ ${EXPERT_NODE_LIMIT} nodes.`;
                 span.textContent = label;
-                span.title = `Your subscription is active (Expert plan, up to ${EXPERT_NODE_LIMIT} nodes per diagram).`;
+                span.title =
+                    `Daily limit: 5 diagrams/day (server-enforced). ` +
+                    `Up to ${EXPERT_NODE_LIMIT} nodes per diagram.`;
                 return;
             }
 
-            // Pro 유저 (일반 Pro)
+            // Pro 유저
             if (window.__isProUser) {
                 const label = window.__planName
-                    ? `Pro (${window.__planName}): unlimited diagrams (≤ ${PRO_NODE_LIMIT} nodes).`
-                    : `Pro: unlimited diagrams (≤ ${PRO_NODE_LIMIT} nodes).`;
+                    ? `Pro (${window.__planName}): 5 diagrams/day, ≤ ${PRO_NODE_LIMIT} nodes.`
+                    : `Pro: 5 diagrams/day, ≤ ${PRO_NODE_LIMIT} nodes.`;
                 span.textContent = label;
-                span.title = `Your subscription is active (Pro plan, up to ${PRO_NODE_LIMIT} nodes per diagram).`;
+                span.title =
+                    `Daily limit: 5 diagrams/day (server-enforced). ` +
+                    `Up to ${PRO_NODE_LIMIT} nodes per diagram.`;
                 return;
             }
 
