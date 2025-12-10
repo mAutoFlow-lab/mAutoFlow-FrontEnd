@@ -710,56 +710,60 @@ const HELP_TEXT_HTML = `
             const span = document.getElementById("quotaInfo");
             if (!span) return;
 
+            // 로그인 안 했으면 표시 X
             if (!window.currentUser) {
                 span.textContent = "";
                 span.title = "";
                 return;
             }
 
-            // 테스트 계정: 숫자 대신 무제한 안내
-            if (window.currentUser.email === TEST_EMAIL) {
+            const email = window.currentUser.email;
+
+            // Test 계정 (exitgiveme)
+            if (email === TEST_EMAIL) {
                 span.textContent = "Free tier: unlimited (test account).";
-                span.title = "Test account is not subject to daily limits.";
+                span.title = "Test account is not subject to any limits.";
                 return;
             }
 
-            // Expert 유저
-            if (window.__planTier === "expert") {
-                const label = window.__planName
-                    ? `Expert (${window.__planName}): 5 diagrams/day, ≤ ${EXPERT_NODE_LIMIT} nodes.`
-                    : `Expert: 5 diagrams/day, ≤ ${EXPERT_NODE_LIMIT} nodes.`;
-                span.textContent = label;
+            const tier = window.__planTier;
+
+            // Expert 계정
+            if (tier === "expert") {
+                span.textContent =
+                    `Expert (${window.__planName || "expert"}): unlimited diagrams (≤ ${EXPERT_NODE_LIMIT} nodes).`;
                 span.title =
-                    `Daily limit: 5 diagrams/day (server-enforced). ` +
-                    `Up to ${EXPERT_NODE_LIMIT} nodes per diagram.`;
+                    `Expert plan active. Up to ${EXPERT_NODE_LIMIT} nodes per diagram.`;
                 return;
             }
 
-            // Pro 유저
-            if (window.__isProUser) {
-                const label = window.__planName
-                    ? `Pro (${window.__planName}): 5 diagrams/day, ≤ ${PRO_NODE_LIMIT} nodes.`
-                    : `Pro: 5 diagrams/day, ≤ ${PRO_NODE_LIMIT} nodes.`;
-                span.textContent = label;
+            // Pro 계정
+            if (tier === "pro") {
+                span.textContent =
+                    `Pro (${window.__planName || "pro"}): unlimited diagrams (≤ ${PRO_NODE_LIMIT} nodes).`;
                 span.title =
-                    `Daily limit: 5 diagrams/day (server-enforced). ` +
-                    `Up to ${PRO_NODE_LIMIT} nodes per diagram.`;
+                    `Pro plan active. Up to ${PRO_NODE_LIMIT} nodes per diagram.`;
                 return;
             }
 
-            // 서버에서 아직 아무 정보도 안 받은 상태
-            if (window.__serverUsageCount == null || window.__dailyFreeLimit == null) {
-                span.textContent = `Free tier: 5 diagrams/day, ≤ ${FREE_NODE_LIMIT} nodes.`;
-                span.title = "Daily limit is enforced on the server.";
+            // Free 계정 (유일하게 일일 제한 존재)
+            if (tier === "free") {
+                // 아직 서버 usage 정보가 없는 초기 상태라면 기본 문구
+                if (window.__serverUsageCount == null || window.__dailyFreeLimit == null) {
+                    span.textContent = `Free tier: 5 diagrams/day, ≤ ${FREE_NODE_LIMIT} nodes.`;
+                    span.title = "Daily limit is enforced on the server.";
+                    return;
+                }
+
+                // 서버 usage 반영된 상태
+                span.textContent = `Today: ${window.__serverUsageCount} / ${window.__dailyFreeLimit} (≤ ${FREE_NODE_LIMIT} nodes).`;
+                span.title = "Daily free usage returned from server.";
                 return;
             }
 
-            // 서버 기준 사용량 표시
-            const count = window.__serverUsageCount;
-            const limit = window.__dailyFreeLimit;
-
-            span.textContent = `Today: ${count} / ${limit} (≤ ${FREE_NODE_LIMIT} nodes)`;
-            span.title = "This usage count is returned from the server.";
+            // 혹시 모를 fallback
+            span.textContent = "";
+            span.title = "";
         }
 
         async function refreshPlanFromSupabase() {
