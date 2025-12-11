@@ -401,33 +401,55 @@
             cursor: pointer;
             font-size: 16px;
         }
+        /* SETTINGS 카드 섹션 */
         .modal-section {
-            margin-bottom: 16px;
-            padding: 12px 0;
-            border-top: 1px solid rgba(148, 163, 184, 0.35); /* 왼쪽 패널 폭만큼 꽉 찬 선 */
-        }
-
-        .settings-contact-link {
-            color: #facc15;                /* 노란 계열 – 어두운 배경에서 확실히 보임 */
-            text-decoration: underline;
-            font-weight: 600;
-        }                
-
-        .modal-section:first-of-type {
-            margin-top: 4px;
-            padding-top: 0;
-            border-top: none;  /* 첫 섹션 위에는 선 제거 */
+            margin-top: 12px;
+            margin-bottom: 22px;
+            background-color: #020617; /* 왼쪽 패널과 비슷한 어두운 카드 */
+            border-radius: 4px;
+            border: 1px solid rgba(15, 23, 42, 0.95);
+            overflow: hidden;         /* 윗줄/내용 모서리 일치 */
         }
 
         .modal-section-title {
             font-weight: 600;
-            margin-bottom: 8px;
+            margin: 0;
+            padding: 6px 10px;
+            background-color: #020617;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.35); /* 카드 상단 구분선 */
         }
 
         .modal-radio-row {
+            padding: 8px 12px 10px;
             display: flex;
             flex-direction: column;
-            gap: 6px;  /* 항목 간 여유 조금 더 */
+            gap: 6px;
+        }
+        .modal-footer {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;  /* 오른쪽 정렬 */
+        }
+
+        .modal-footer-inner {
+            background-color: #020617;
+            border-radius: 4px;
+            border: 1px solid rgba(15, 23, 42, 0.95);
+            padding: 8px 12px 10px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .modal-footer-contact {
+            font-size: 11px;
+            opacity: 0.85;
+        }
+
+        .settings-contact-link {
+            color: #facc15;              /* 어두운 배경에서 잘 보이는 노란색 */
+            text-decoration: underline;
+            font-weight: 600;
         }
       
     </style>
@@ -2737,14 +2759,16 @@ void main(void)
                     </label>
                 </div>
             </div>
-            <div style="margin-top:8px; font-size:11px; opacity:0.8; text-align:right;">
-                Contact: 
-                <a href="mailto:mautoflow.lab@gmail.com" class="settings-contact-link">
-                    mautoflow.lab@gmail.com
-                </a>
-            </div>
-            <div style="text-align:right; margin-top:10px; font-size:12px;">
-                <button class="btn btn-ghost" onclick="closeSettings()">Close</button>
+            <div class="modal-footer">
+                <div class="modal-footer-inner">
+                    <div class="modal-footer-contact">
+                        Contact:
+                        <a href="mailto:mautoflow.lab@gmail.com" class="settings-contact-link">
+                            mautoflow.lab@gmail.com
+                        </a>
+                    </div>
+                    <button class="btn btn-ghost" onclick="closeSettings()">Close</button>
+                </div>
             </div>
         </div>
     </div>
