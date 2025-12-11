@@ -403,36 +403,49 @@
         }
         /* SETTINGS 카드 섹션 */
         .modal-section {
-            margin-top: 12px;
-            margin-bottom: 22px;
-            background-color: #020617; /* 왼쪽 패널과 비슷한 어두운 카드 */
-            border-radius: 4px;
-            border: 1px solid rgba(15, 23, 42, 0.95);
-            overflow: hidden;         /* 윗줄/내용 모서리 일치 */
+            /* 위/아래 간격 + 좌우 살짝 여백 */
+            margin: 18px 4px 22px;
+            padding: 0 0 6px;
+            background-color: transparent;      /* 카드 안/밖 색 동일 */
         }
 
+        /* 섹션 위쪽에만 가로선 하나 (좌우 여백 있음) */
+        .modal-section::before {
+            content: "";
+            display: block;
+            border-top: 1px solid rgba(148, 163, 184, 0.35);
+            margin: 0 8px 10px;   /* ←→ 여백 8px, 아래로 10px 떨어뜨림 */
+        }
+
+        /* 첫 섹션은 맨 위 선 제거 */
+        .modal-section:first-of-type::before {
+            border-top: none;
+            margin-bottom: 0;
+        }
+
+        /* 섹션 제목 */
         .modal-section-title {
             font-weight: 600;
             margin: 0;
-            padding: 6px 10px;
-            background-color: #020617;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.35); /* 카드 상단 구분선 */
+            padding: 0 10px 6px;  /* 좌우 여백 + 아래쪽만 살짝 간격 */
+            background-color: transparent;      /* 상단 바탕도 동일 색 */
         }
 
+        /* 라디오 영역 */
         .modal-radio-row {
-            padding: 8px 12px 10px;
+            padding: 0 12px 0;
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
         .modal-footer {
-            margin-top: 10px;
+            margin-top: 16px;
             display: flex;
             justify-content: flex-end;  /* 오른쪽 정렬 */
         }
 
         .modal-footer-inner {
-            background-color: #020617;
+            background-color: transparent;   /* 카드 안/밖 동일 색 */
             border-radius: 4px;
             border: 1px solid rgba(15, 23, 42, 0.95);
             padding: 8px 12px 10px;
@@ -2759,6 +2772,8 @@ void main(void)
                     </label>
                 </div>
             </div>
+
+            <!-- ✅ Contact + Close footer -->
             <div class="modal-footer">
                 <div class="modal-footer-inner">
                     <div class="modal-footer-contact">
