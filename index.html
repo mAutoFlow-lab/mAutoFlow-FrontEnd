@@ -3,6 +3,9 @@
     <meta charset="UTF-8" />
     <title>mAutoFlow</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- PDF 다운로드용 (jsPDF + svg2pdf) -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.2/dist/svg2pdf.umd.min.js"></script>
     <style>
         :root {
             /* 기본 테마 (classic) */
@@ -570,6 +573,7 @@
         let funcNameStyle = "short";
         let macroDefines  = "";      // -D 매크로 문자열 (프론트에서 입력받는 값)
         let macroMode = "all";   // "all" | "defined"
+        let downloadFormat = "svg";   // svg | png | pdf (기본 svg)
 
 	// 서버에서 내려준 사용량 / 한도 (없으면 null)
         window.__serverUsageCount = null;
@@ -1274,9 +1278,101 @@ const HELP_TEXT_HTML = `
         }
 
         // 다운로드 타입에 따라 분기
-        function downloadDiagram() {
+        async function downloadDiagram() {
+          if (downloadFormat === "png") {
+            await downloadAsPNG();
+          } else if (downloadFormat === "pdf") {
+            await downloadAsPDF();
+          } else {
             downloadAsSVG();
+          }
         }
+
+        // PNG 다운로드: SVG → Canvas 렌더 → PNG Blob
+        async function downloadAsPNG() {
+          const svgEl = document.querySelector("#chartInner svg");
+          if (!svgEl) {
+            alert("There is no flowchart to download yet.");
+            return;
+          }
+
+          const cloned = svgEl.cloneNode(true);
+          cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+          const serializer = new XMLSerializer();
+          const svgText = serializer.serializeToString(cloned);
+
+          const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(svgBlob);
+
+          const img = new Image();
+          img.onload = async () => {
+            try {
+              const canvas = document.createElement("canvas");
+              const w = img.width || 1200;
+              const h = img.height || 800;
+              canvas.width = w;
+              canvas.height = h;
+
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0);
+
+              canvas.toBlob((blob) => {
+                if (!blob) return;
+                const pngUrl = URL.createObjectURL(blob);
+                triggerDownload(pngUrl, getCurrentFilename("png"));
+                setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+              }, "image/png");
+            } finally {
+              URL.revokeObjectURL(url);
+            }
+          };
+
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            alert("Failed to export PNG. Try SVG, or simplify the diagram.");
+          };
+
+          img.src = url;
+        }
+
+
+        // PDF 다운로드: jsPDF + svg2pdf
+        async function downloadAsPDF() {
+          const svgEl = document.querySelector("#chartInner svg");
+          if (!svgEl) {
+            alert("There is no flowchart to download yet.");
+            return;
+          }
+
+          // jsPDF UMD 로드 방식 대응
+          const { jsPDF } = window.jspdf || {};
+          if (!jsPDF || !window.svg2pdf) {
+            alert("PDF export library not loaded.");
+            return;
+          }
+
+          // SVG 복제/정리
+          const cloned = svgEl.cloneNode(true);
+          cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+          // SVG 크기 추정
+          const bbox = svgEl.getBBox ? svgEl.getBBox() : null;
+          const width = Math.ceil((bbox?.width || svgEl.clientWidth || 1200));
+          const height = Math.ceil((bbox?.height || svgEl.clientHeight || 800));
+
+          // PDF 생성 (px 기반으로 간단히)
+          const pdf = new jsPDF({
+            orientation: width >= height ? "l" : "p",
+            unit: "pt",
+            format: [width, height],
+          });
+
+          // svg2pdf 호출
+          await window.svg2pdf(cloned, pdf, { xOffset: 0, yOffset: 0, scale: 1 });
+
+          pdf.save(getCurrentFilename("pdf"));
+        }          
 
         let typingTimer = null;
         const TYPING_DELAY_MS = 600;
@@ -2396,9 +2492,24 @@ const HELP_TEXT_HTML = `
             }
 
             applyMacroUIState();
+
+            // ----- Download Options -----
+            try {
+              const saved = localStorage.getItem("autoflow-download-format");
+              if (saved) downloadFormat = saved;
+            } catch(e) {}
+
+            const dlRadios = scope.querySelectorAll('input[name="downloadFormat"]');
+            dlRadios.forEach(r => {
+              if (r.value === downloadFormat) r.checked = true;
+
+              r.addEventListener("change", (e) => {
+                if (!e.target.checked) return;
+                downloadFormat = e.target.value; // svg | png | pdf
+                try { localStorage.setItem("autoflow-download-format", downloadFormat); } catch(e2) {}
+              });
+            });
         }
-
-
 
         document.addEventListener("DOMContentLoaded", function() {
             const src = document.getElementById("src");
@@ -2763,6 +2874,25 @@ void main(void)
                   rows="3"
                   placeholder="Type macros like: DEBUG;TEST=2;RELEASE"
                   disabled></textarea>
+              </div>
+            </div>
+            <div class="modal-group-title">Download Options</div>
+
+            <div class="modal-section">
+              <div class="modal-section-title">Format</div>
+              <div class="modal-radio-row">
+                <label>
+                  <input type="radio" name="downloadFormat" value="svg" checked />
+                  SVG
+                </label>
+                <label>
+                  <input type="radio" name="downloadFormat" value="png" />
+                  PNG
+                </label>
+                <label>
+                  <input type="radio" name="downloadFormat" value="pdf" />
+                  PDF
+                </label>
               </div>
             </div>
         </div>
