@@ -567,7 +567,12 @@
           window.location.href = url;
         }
 
-	mermaid.initialize({ startOnLoad: false });
+	mmermaid.initialize({
+          startOnLoad: false,
+          flowchart: {
+            htmlLabels: false   // ✅ PDF/PNG 내보내기에서 텍스트 안 사라지게
+          }
+        });
 
 	// 전역 선언 (어디서든 접근 가능)
         let funcNameStyle = "short";
