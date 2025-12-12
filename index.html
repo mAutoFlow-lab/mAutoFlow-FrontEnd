@@ -420,6 +420,17 @@
             background-color: transparent;      /* 카드 안/밖 색 동일 */
         }
 
+        /* SETTINGS 그룹 타이틀 (Display Options / Macro Options) */
+        .modal-group-title{
+            font-weight: 700;
+            font-size: 13px;
+            margin: 14px 4px 8px;
+            padding: 6px 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.45);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+        }
+                           
+
         /* 섹션 위쪽에만 가로선 하나 (좌우 여백 있음) */
         .modal-section::before {
             content: "";
@@ -476,13 +487,11 @@
             font-weight: 600;
         }
 
-        /* 라디오 선택 색(조금 연한 빨간색) */
         body[data-theme="dark"] input[type="radio"] {
-            accent-color: #fb7185;   /* 다크 테마용 연한 레드/핑크 */
+            accent-color: #34d399;   /* 연두(emerald) */
         }
-
         body:not([data-theme="dark"]) input[type="radio"] {
-            accent-color: #f97373;   /* 라이트/클래식용 부드러운 레드 */
+            accent-color: #22c55e;   /* 연두(green) */
         }                   
       
     </style>
@@ -2778,9 +2787,11 @@ void main(void)
     <div id="settingsOverlay" class="modal-overlay modal-hidden">
         <div class="modal-panel">
             <div class="modal-header">
-                <h2>Display Options</h2>
+                <h2>SETTINGS</h2>
                 <button class="modal-close" onclick="closeSettings()">×</button>
             </div>
+
+            <div class="modal-group-title">Display Options</div>
 
             <!-- Theme 섹션 -->
             <div class="modal-section">
@@ -2831,6 +2842,8 @@ void main(void)
                 </div>
             </div>
 
+            <div class="modal-group-title">Macro Options</div>
+
             <!-- Preprocessor Macros 섹션 -->
             <div class="modal-section">
                 <div class="modal-section-title">Preprocessor Macros (-D)</div>
@@ -2853,20 +2866,6 @@ void main(void)
                             color: var(--code-text);
                         "
                         placeholder="Type macros like: DEBUG;TEST=2;RELEASE"></textarea>
-                </div>
-            </div>
-
-
-            <!-- ✅ Contact + Close footer -->
-            <div class="modal-footer">
-                <div class="modal-footer-inner">
-                    <div class="modal-footer-contact">
-                        Contact:
-                        <a href="mailto:mautoflow.lab@gmail.com" class="settings-contact-link">
-                            mautoflow.lab@gmail.com
-                        </a>
-                    </div>
-                    <button class="btn btn-ghost" onclick="closeSettings()">Close</button>
                 </div>
             </div>
         </div>
