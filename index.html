@@ -568,7 +568,8 @@
 
 	// 전역 선언 (어디서든 접근 가능)
         let funcNameStyle = "short";
-        let macroDefines  = "";      // -D 매크로 문자열 (프론트에서 입력받는 값)           
+        let macroDefines  = "";      // -D 매크로 문자열 (프론트에서 입력받는 값)
+        let macroMode = "all";   // "all" | "defined"
 
 	// 서버에서 내려준 사용량 / 한도 (없으면 null)
         window.__serverUsageCount = null;
@@ -1960,10 +1961,17 @@ const HELP_TEXT_HTML = `
             formData.append("func_name_style", funcNameStyle);
 
             // 미니 전처리기용 매크로 정의 문자열 전달
-            if (typeof macroDefines === "string" && macroDefines.trim().length > 0) {
-                formData.append("macro_defines", macroDefines.trim());
+            if (macroMode === "defined") {
+              const v = (macroDefines || "").trim();
+              if (v.length > 0) {
+                formData.append("macro_defines", v);
+              } else {
+                // Defined인데 비어있으면: #else 쪽을 타게 해야 함
+                // (백엔드에서 이 값을 special-case로 처리)
+                formData.append("macro_defines", "__USE_ELSE_ONLY__");
+              }
             }
-            
+                        
 
             try {
                 // ① Supabase에서 access_token 가져오기
@@ -2490,26 +2498,46 @@ const HELP_TEXT_HTML = `
             });
 
             // ----- Preprocessor Macros (-D) -----
-            let savedMacros = "";
-            try {
-                const m = localStorage.getItem("autoflow-macros");
-                if (m) savedMacros = m;
-            } catch (e) {}
+            macroMode = "all";
+            macroDefines = "";
 
-            macroDefines = savedMacros;
-
+            const macroModeRadios = scope.querySelectorAll('input[name="macroMode"]');
             const macroField = scope.querySelector("#macroInput");
+
+            function applyMacroUIState() {
+              if (!macroField) return;
+              if (macroMode === "defined") {
+                macroField.disabled = false;
+              } else {
+                macroField.disabled = true;
+                macroField.value = "";
+                macroDefines = "";
+                try { localStorage.removeItem("autoflow-macros"); } catch(e) {}
+              }
+            }
+
+            // 라디오 이벤트
+            macroModeRadios.forEach(r => {
+              if (r.value === macroMode) r.checked = true;
+              r.addEventListener("change", (e) => {
+                if (!e.target.checked) return;
+                macroMode = e.target.value;     // all | defined
+                applyMacroUIState();
+                generateFlowchart(true);
+              });
+            });
+
+            // textarea 입력 이벤트 (Defined일 때만 의미)
             if (macroField) {
-                macroField.value = savedMacros;
-                macroField.addEventListener("input", (e) => {
-                    macroDefines = (e.target.value || "").trim();
-                    try {
-                        localStorage.setItem("autoflow-macros", macroDefines);
-                    } catch (e2) {}
-                    // 매크로가 바뀌면 즉시 플로우차트 다시 생성
-                    generateFlowchart(true);
-                });
-            }            
+              macroField.value = "";
+              macroField.addEventListener("input", (e) => {
+                macroDefines = (e.target.value || "").trim();
+                try { localStorage.setItem("autoflow-macros", macroDefines); } catch(e2) {}
+                generateFlowchart(true);
+              });
+            }
+
+            applyMacroUIState();
         }
 
 
@@ -2687,6 +2715,20 @@ const HELP_TEXT_HTML = `
 
             // 타이핑 자동 업데이트 (debounce)
             src.addEventListener("input", function() {
+                // ✅ (여기!) 소스가 바뀌면 Macro 설정 초기화 (All 기본으로)
+                macroMode = "all";
+                macroDefines = "";
+                try { localStorage.removeItem("autoflow-macros"); } catch(e) {}
+
+                const allRadio = document.querySelector('input[name="macroMode"][value="all"]');
+                const macroField = document.getElementById("macroInput");
+                if (allRadio) allRadio.checked = true;
+                if (macroField) {
+                    macroField.value = "";
+                    macroField.disabled = true;
+                }
+
+                
                 if (typingTimer) clearTimeout(typingTimer);
                 typingTimer = setTimeout(function() {
                     generateFlowchart(true);
@@ -2895,17 +2937,30 @@ void main(void)
 
             <!-- Preprocessor Macros 섹션 -->
             <div class="modal-section macro-section">
-                <div class="modal-section-title">Preprocessor Macros (-D)</div>
-                <div class="modal-radio-row">
-                    <label for="macroInput" style="font-size:12px; opacity:0.9; margin-bottom:4px;">
-                        Example: <code>DEBUG;TEST=2;RELEASE</code>
-                    </label>
-                    <textarea
-                        id="macroInput"
-                        class="macro-input"
-                        rows="3"
-                        placeholder="Type macros like: DEBUG;TEST=2;RELEASE"></textarea>
-                </div>
+              <div class="modal-section-title">Preprocessor Macros (-D)</div>
+
+              <div class="modal-radio-row">
+                <label>
+                  <input type="radio" name="macroMode" value="all" checked />
+                  All
+                </label>
+
+                <label>
+                  <input type="radio" name="macroMode" value="defined" />
+                  Defined
+                </label>
+
+                <label for="macroInput" style="font-size:12px; opacity:0.9; margin:4px 0 2px;">
+                  Example: <code>DEBUG;TEST=2;RELEASE</code>
+                </label>
+
+                <textarea
+                  id="macroInput"
+                  class="macro-input"
+                  rows="3"
+                  placeholder="Type macros like: DEBUG;TEST=2;RELEASE"
+                  disabled></textarea>
+              </div>
             </div>
         </div>
     </div>
