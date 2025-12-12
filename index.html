@@ -1297,6 +1297,12 @@ const HELP_TEXT_HTML = `
           }
 
           const cloned = svgEl.cloneNode(true);
+
+          const bbox = svgEl.getBBox ? svgEl.getBBox() : null;
+          const w = Math.ceil(bbox?.width || svgEl.clientWidth || 1200);
+          const h = Math.ceil(bbox?.height || svgEl.clientHeight || 800);
+          cloned.setAttribute("width", String(w));
+          cloned.setAttribute("height", String(h));
           cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
           const serializer = new XMLSerializer();
@@ -2452,8 +2458,8 @@ const HELP_TEXT_HTML = `
             });
 
             // ----- Preprocessor Macros (-D) -----
-            macroMode = "all";
-            macroDefines = "";
+            // macroMode = "all";
+            // macroDefines = "";
 
             const macroModeRadios = scope.querySelectorAll('input[name="macroMode"]');
             const macroField = scope.querySelector("#macroInput");
@@ -2796,6 +2802,12 @@ void main(void)
     <!-- SETTINGS 모달: 여기 추가 -->
     <div id="settingsOverlay" class="modal-overlay modal-hidden">
         <div class="modal-panel">
+
+            <div class="modal-header">
+                <h2>SETTINGS</h2>
+                <button class="modal-close" onclick="closeSettings()">×</button>
+            </div>
+        
             <div class="modal-group-title">Display Options</div>
 
             <!-- Theme 섹션 -->
