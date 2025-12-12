@@ -415,11 +415,11 @@
 
         /* SETTINGS - Macro Input width alignment */
         #macroInput{
-          display:block;
+          display: block;
           width: 100%;
-          margin: 0 16px;
+          margin: 0;
           box-sizing: border-box;
-        }          
+        }     
                    
         /* SETTINGS 카드 섹션 */
         .modal-section {
@@ -1178,14 +1178,19 @@ const HELP_TEXT_HTML = `
             codeArea.innerHTML = `
               <div id="settingsContent"
                    style="
-                     padding:0;                /* 여기 10px 제거 */
+                     flex: 1;              /* ✅ 이게 핵심: 좌측 창 전체 폭/높이 사용 */
+                     min-width: 0;         /* ✅ flex 자식 overflow 방지(가로 스크롤바 원인 제거) */
+                     width: 100%;
+                     padding: 10px;        /* HELP처럼 적당히 여백 (원하면 0으로) */
                      color: var(--code-text);
-                     font-size:13px;
-                     overflow-y:auto;
+                     font-size: 13px;
+                     overflow-y: auto;
+                     overflow-x: hidden;   /* ✅ 가로 스크롤 제거(필요시) */
                    ">
                 ${panelHTML}
               </div>
             `;
+
 
             // 새로 생긴 SETTINGS DOM 기준으로 라디오 초기화/이벤트 연결
             const settingsRoot = document.getElementById("settingsContent");
