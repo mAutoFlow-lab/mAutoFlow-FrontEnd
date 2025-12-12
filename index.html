@@ -416,7 +416,7 @@
         /* SETTINGS - Macro Input width alignment */
         #macroInput{
           display:block;
-          width: calc(100% - 32px);
+          width: 100%;
           margin: 0 16px;
           box-sizing: border-box;
         }          
@@ -442,12 +442,10 @@
 
         /* 섹션 위쪽에만 가로선 하나 (좌우 여백 있음) */
         .modal-section::before {
-            content: "";
-            display: block;
             border-top: 1px solid rgba(148, 163, 184, 0.35);
-            margin: 0 16px 10px;   /* 8px → 16px (선이 더 길어짐) */
+            margin: 0 6px 10px;   /* ← 16px → 6px */
         }
-
+                   
         /* 첫 섹션은 맨 위 선 제거 */
         .modal-section:first-of-type::before {
             border-top: none;
@@ -2821,11 +2819,6 @@ void main(void)
     <!-- SETTINGS 모달: 여기 추가 -->
     <div id="settingsOverlay" class="modal-overlay modal-hidden">
         <div class="modal-panel">
-            <div class="modal-header">
-                <h2>SETTINGS</h2>
-                <button class="modal-close" onclick="closeSettings()">×</button>
-            </div>
-
             <div class="modal-group-title">Display Options</div>
 
             <!-- Theme 섹션 -->
