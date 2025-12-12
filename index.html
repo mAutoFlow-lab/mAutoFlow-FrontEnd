@@ -414,11 +414,12 @@
         }
 
         /* SETTINGS - Macro Input width alignment */
-        #macroInput {
-            width: calc(100% - 32px);
-            margin: 0 16px;
-            box-sizing: border-box;
-        }
+        #macroInput{
+          display:block;
+          width: calc(100% - 32px);
+          margin: 0 16px;
+          box-sizing: border-box;
+        }          
                    
         /* SETTINGS 카드 섹션 */
         .modal-section {
@@ -468,6 +469,12 @@
             flex-direction: column;
             gap: 6px;
         }
+
+        /* Macro 섹션만 좌우 padding 제거 */
+        .macro-section .modal-radio-row {
+            padding: 0;
+        }
+            
         .modal-footer {
             margin-top: 16px;
             display: flex;
@@ -500,7 +507,21 @@
         }
         body:not([data-theme="dark"]) input[type="radio"] {
             accent-color: #22c55e;   /* 연두(green) */
-        }                   
+        }
+
+        /* ===============================
+           SETTINGS - Macro textarea style
+           =============================== */
+        .macro-input {
+            resize: vertical;
+            font-size: 12px;
+            font-family: Consolas, "Roboto Mono", monospace;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(148,163,184,0.6);
+            background-color: var(--bg-code);
+            color: var(--code-text);
+        }           
       
     </style>
 
@@ -1157,9 +1178,15 @@ const HELP_TEXT_HTML = `
 
             // 좌측 코드 영역에 SETTINGS UI 렌더링
             codeArea.innerHTML = `
-                <div id="settingsContent" style="padding:10px; color:var(--code-text); font-size:13px; overflow-y:auto;">
-                    ${panelHTML}
-                </div>
+              <div id="settingsContent"
+                   style="
+                     padding:0;                /* 여기 10px 제거 */
+                     color: var(--code-text);
+                     font-size:13px;
+                     overflow-y:auto;
+                   ">
+                ${panelHTML}
+              </div>
             `;
 
             // 새로 생긴 SETTINGS DOM 기준으로 라디오 초기화/이벤트 연결
@@ -2802,7 +2829,7 @@ void main(void)
             <div class="modal-group-title">Display Options</div>
 
             <!-- Theme 섹션 -->
-            <div class="modal-section">
+            <div class="modal-section"> <!-- Theme -->
                 <div class="modal-section-title">Theme</div>
                 <div class="modal-radio-row">
                     <label>
@@ -2821,7 +2848,7 @@ void main(void)
             </div>
 
             <!-- Branch Shape 섹션 복구 -->
-            <div class="modal-section">
+            <div class="modal-section"> <!-- Branch Shape -->
                 <div class="modal-section-title">Branch Shape</div>
                 <div class="modal-radio-row">
                     <label>
@@ -2836,7 +2863,7 @@ void main(void)
             </div>
 
             <!-- Function Name Display 섹션 -->
-            <div class="modal-section">
+            <div class="modal-section"> <!-- Function Name Display -->
                 <div class="modal-section-title">Function Name Display</div>
                 <div class="modal-radio-row">
                     <label>
@@ -2853,7 +2880,7 @@ void main(void)
             <div class="modal-group-title">Macro Options</div>
 
             <!-- Preprocessor Macros 섹션 -->
-            <div class="modal-section">
+            <div class="modal-section macro-section">
                 <div class="modal-section-title">Preprocessor Macros (-D)</div>
                 <div class="modal-radio-row">
                     <label for="macroInput" style="font-size:12px; opacity:0.9; margin-bottom:4px;">
@@ -2861,17 +2888,8 @@ void main(void)
                     </label>
                     <textarea
                         id="macroInput"
+                        class="macro-input"
                         rows="3"
-                        style="
-                            resize: vertical;
-                            font-size:12px;
-                            font-family: Consolas, 'Roboto Mono', monospace;
-                            padding:4px 6px;
-                            border-radius:4px;
-                            border:1px solid rgba(148,163,184,0.6);
-                            background-color: var(--bg-code);
-                            color: var(--code-text);
-                        "
                         placeholder="Type macros like: DEBUG;TEST=2;RELEASE"></textarea>
                 </div>
             </div>
