@@ -963,8 +963,6 @@ const HELP_TEXT_HTML = `
                         window.__planTier = "free";
                     }
                     updateQuotaInfo();
-                    // 대시보드 열려 있다면 거기도 반영
-                    try { updateDashboardUI(); } catch (_) {}
                     return;
                 }
 
@@ -997,7 +995,6 @@ const HELP_TEXT_HTML = `
                     window.__planTier = "free";
                 }
                 updateQuotaInfo();
-                try { updateDashboardUI(); } catch (_) {}
             }
         }
         
@@ -1226,122 +1223,6 @@ const HELP_TEXT_HTML = `
             restoreCodeEditor();
         }
 
-        function updateDashboardUI() {
-            const planEl  = document.getElementById("dashboardPlanText");
-            const usageEl = document.getElementById("dashboardUsageText");
-
-            if (!planEl || !usageEl) return;
-
-            const user    = window.currentUser;
-            const email   = user?.email || "";
-            const isTest  = (email === TEST_EMAIL);
-            const tier    = window.__planTier;
-            const isLoadingPlan = !!window.__planLoading && !tier;
-
-            if (!user) {
-                planEl.textContent  =
-                    `Not logged in. Guest mode with Free tier (up to ${FREE_NODE_LIMIT} nodes per diagram).`;
-                usageEl.textContent =
-                    `Guest usage shares the same free quota: ${DAILY_FREE_LIMIT} diagrams/day, ≤ ${FREE_NODE_LIMIT} nodes.`;
-                return;
-            }
-
-            if (isTest) {
-                planEl.textContent =
-                    `Test account for ${email}. Unlimited diagrams (no daily or node limit).`;
-                usageEl.textContent =
-                    "Unlimited usage. Daily limit does not apply to this test account.";
-                return;
-            }
-
-            // 🔹 플랜 로딩 중: Free/Pro/Expert 라벨 대신 로딩 상태
-            if (isLoadingPlan) {
-                planEl.textContent  = `Loading plan info for ${email}...`;
-                usageEl.textContent = "Loading usage info...";
-                return;
-            }
-
-            const effectiveTier = tier || (window.__isProUser ? "pro" : "free");
-            const planName = window.__planName || (
-                effectiveTier === "expert" ? "Expert plan" :
-                effectiveTier === "pro"    ? "Pro plan" :
-                                             "Free tier"
-            );
-
-            // 노드 제한 값 (백엔드에서 내려준 값이 있으면 그거 우선)
-            let nodeLimit = window.__nodeLimit;
-            if (!Number.isFinite(nodeLimit)) {
-                if (isTest) {
-                    nodeLimit = Infinity;
-                } else if (effectiveTier === "expert") {
-                    nodeLimit = EXPERT_NODE_LIMIT;
-                } else if (window.__isProUser) {
-                    nodeLimit = PRO_NODE_LIMIT;
-                } else {
-                    nodeLimit = FREE_NODE_LIMIT;
-                }
-            }
-
-            // ---------- Plan 텍스트 ----------
-            if (effectiveTier === "expert") {
-                planEl.textContent =
-                    `Expert plan (${planName}) for ${email}. Up to ${nodeLimit} nodes per diagram.`;
-            } else if (window.__isProUser) {
-                planEl.textContent =
-                    `Pro plan (${planName}) for ${email}. Up to ${nodeLimit} nodes per diagram.`;
-            } else {
-                planEl.textContent =
-                    `Free tier for ${email}. Up to ${nodeLimit} nodes per diagram.`;
-            }
-
-            // ---------- Usage 텍스트 ----------
-            if (isTest) {
-                usageEl.textContent =
-                    "Unlimited usage. Daily limit does not apply to this test account.";
-            } else if (effectiveTier === "expert" || effectiveTier === "pro") {
-                usageEl.textContent =
-                    "Unlimited usage. No daily diagram limit applies to your plan.";
-            } else {
-                const count = window.__serverUsageCount;
-                const limit = window.__dailyFreeLimit;
-
-                if (typeof count === "number" && typeof limit === "number") {
-                    usageEl.textContent =
-                        `Today: ${count} / ${limit} diagrams (server-enforced free quota).`;
-                } else {
-                    usageEl.textContent =
-                        `Daily limit: ${DAILY_FREE_LIMIT} diagrams/day (server-enforced).` +
-                        " Usage details will appear after you generate at least one diagram.";
-                }
-            }
-        }
-
-        function openDashboard() {
-          const overlay = document.getElementById("dashboardOverlay");
-          if (!overlay) return;
-
-          // 매번 열릴 때마다 최신 정보로 채우기
-          updateDashboardUI();
-          
-          overlay.classList.remove("modal-hidden");
-
-          const panel = overlay.querySelector(".modal-panel");
-          if (panel) {
-            panel.style.position = "fixed";
-            const rect = panel.getBoundingClientRect();
-            const left = (window.innerWidth - rect.width) / 2;
-            const top  = (window.innerHeight - rect.height) / 2;
-            panel.style.left = `${Math.max(left, 0)}px`;
-            panel.style.top  = `${Math.max(top, 0)}px`;
-          }
-        }
-
-        function closeDashboard() {
-          const overlay = document.getElementById("dashboardOverlay");
-          if (!overlay) return;
-          overlay.classList.add("modal-hidden");
-        }
-
         // ============================
         //  Download 헬퍼들
         // ============================
@@ -1477,30 +1358,7 @@ const HELP_TEXT_HTML = `
             if (type === "error")   status.classList.add("error");
 
             status.textContent = icon ? `${icon} ${message}` : message;
-        }
-
-        async function fetchBackendVersion() {
-            const el = document.getElementById("backendVersion");
-            if (!el) return;
-
-            try {
-                const res = await fetch(API_BASE + "/version");
-                if (!res.ok) {
-                    throw new Error("HTTP " + res.status);
-                }
-                const data = await res.json();
-
-                const ver = data.version || "unknown";
-                const daily = data.daily_free_limit ?? DAILY_FREE_LIMIT;
-                const nodeLimit = data.free_node_limit ?? FREE_NODE_LIMIT;
-
-                el.textContent = `Backend: ${ver}`;
-                el.title = `Daily limit: ${daily} diagrams/day, ≤ ${nodeLimit} nodes`;
-            } catch (e) {
-                console.warn("Failed to fetch backend version:", e);
-                // 실패해도 UI 깨지진 않게 그냥 무시
-            }
-        }         
+        }        
 
         // 백엔드에서 내려오는 에러 코드를 보기 좋게 매핑
         function mapBackendError(errorCode, rawError) {
@@ -2587,17 +2445,7 @@ const HELP_TEXT_HTML = `
                         closeSettings();
                     }
                 });
-            }
-
-            const dashboardOverlay = document.getElementById("dashboardOverlay");
-            if (dashboardOverlay) {
-                dashboardOverlay.addEventListener("click", (evt) => {
-                    if (evt.target === dashboardOverlay) {
-                        closeDashboard();
-                    }
-                });
-            }
-            
+            }            
 
             let isDraggingSettings = false;
             let dragStartX = 0;
@@ -2739,9 +2587,6 @@ const HELP_TEXT_HTML = `
             src.addEventListener("click", updateNodeHighlightFromCaret);
             src.addEventListener("keyup", updateNodeHighlightFromCaret);
             src.addEventListener("mouseup", updateNodeHighlightFromCaret);
-
-            // 백엔드 버전 정보 표시
-            fetchBackendVersion();
         });
     </script>
 </head>
@@ -2774,18 +2619,9 @@ const HELP_TEXT_HTML = `
                     onclick="openProCheckout()">
                 UPGRADE
             </button>
-            <button class="btn-settings" onclick="downloadDiagram()">DOWNLOAD</button>
-
-            <!-- DASHBOARD 버튼 추가 -->
-            <button id="dashboardBtn" class="btn-settings" onclick="openDashboard()">
-                DASHBOARD
-            </button>
-            
+            <button class="btn-settings" onclick="downloadDiagram()">DOWNLOAD</button>         
             <button class="btn-settings" onclick="openSettings()">SETTINGS</button>
             <button id="helpToggleBtn" class="btn-settings" onclick="toggleHelp()">HELP</button>
-
-            <!-- 백엔드 버전 표시 -->
-            <span id="backendVersion" style="margin-left:8px; font-size:11px; opacity:0.75;"></span>
         </div>
     </header>
     <div class="main">
@@ -2844,39 +2680,6 @@ void main(void)
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- DASHBOARD 모달 -->
-    <div id="dashboardOverlay" class="modal-overlay modal-hidden">
-      <div class="modal-panel">
-        <div class="modal-header">
-          <h2>User Dashboard</h2>
-          <button class="modal-close" onclick="closeDashboard()">✕</button>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-title">Plan</div>
-          <div id="dashboardPlanText" class="modal-section-body">
-            Loading plan info...
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-title">Usage</div>
-          <div id="dashboardUsageText" class="modal-section-body">
-            Loading usage info...
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-title">Subscription</div>
-          <div>
-            <button class="btn-settings" onclick="openProCheckout()">
-              Manage / Upgrade Plan
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
     
     <!-- SETTINGS 모달: 여기 추가 -->
