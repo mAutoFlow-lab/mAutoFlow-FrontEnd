@@ -1357,85 +1357,34 @@ const HELP_TEXT_HTML = `
         }
 
         async function downloadViaBackend(format) {
-          // format: "png" | "pdf"
-          format = (format || "png").toLowerCase();
-
-          // 로그인 확인
-          if (!window.currentUser || !window.supabase) {
-            alert("Please log in first.");
+          const svgEl = document.querySelector("#chartInner svg");
+          if (!svgEl) {
+            alert("There is no flowchart to download yet.");
             return;
           }
 
-          // 현재 textarea 기준으로 코드 읽기 (generateFlowchart와 동일한 방어로직)
-          const srcEl = document.getElementById("src");
-          let src = srcEl ? (srcEl.value || "").trim() : "";
-
-          if ((!src || src.length === 0) && typeof savedSourceCode === "string") {
-            const saved = savedSourceCode.trim();
-            if (saved) src = saved;
-          }
-
-          if (!src) {
-            alert("There is no code to export.");
-            return;
-          }
-
-          // access_token 가져오기 (getSession 사용 권장)
-          let accessToken = null;
-          try {
-            const sessionResp = await window.supabase.auth.getSession();
-            accessToken = sessionResp?.data?.session?.access_token || null;
-          } catch (e) {
-            console.warn("Failed to get session:", e);
-          }
-
-          if (!accessToken) {
-            alert("Login session not found. Please log in again.");
-            return;
-          }
+          const serializer = new XMLSerializer();
+          const svgText = serializer.serializeToString(svgEl);
 
           const formData = new FormData();
-          formData.append("source_code", src);
-          formData.append("out_format", format);                 // ✅ 백엔드가 out_format 사용
-          formData.append("branch_shape", currentBranchShape);
+          formData.append("svg", svgText);
+          formData.append("format", format); // png | pdf
 
-          // ✅ convert_text와 동일하게 macro_defines 처리
-          if (macroMode === "defined") {
-            const v = (macroDefines || "").trim();
-            if (v.length > 0) formData.append("macro_defines", v);
-            else formData.append("macro_defines", "__USE_ELSE_ONLY__");
-          }
-
-          // ✅ 인증/유저 정보
-          formData.append("access_token", accessToken);
-          formData.append("user_id", window.currentUser.id);
-          formData.append("user_email", window.currentUser.email || "");
-
-          // 다운로드 요청
           const res = await fetch(API_BASE + "/api/export", {
             method: "POST",
             body: formData,
           });
 
           if (!res.ok) {
-            let msg = `Export failed (${res.status}).`;
-            try {
-              const data = await res.json();
-              if (data?.detail) msg += " " + (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
-              if (data?.error) msg += " " + data.error;
-            } catch (_) {}
-            alert(msg);
-            return;
+            throw new Error("Export failed");
           }
 
-          // 파일 blob 받기 → 다운로드
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
 
           triggerDownload(url, getCurrentFilename(format));
-          setTimeout(() => URL.revokeObjectURL(url), 1500);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
-        
         
         let typingTimer = null;
         const TYPING_DELAY_MS = 600;
