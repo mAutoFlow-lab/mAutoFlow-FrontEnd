@@ -1348,24 +1348,94 @@ const HELP_TEXT_HTML = `
 
         // 다운로드 타입에 따라 분기
         async function downloadDiagram() {
-          if (downloadFormat === "png") {
-            await downloadAsPNG();
-          } else if (downloadFormat === "pdf") {
-            await downloadAsPDF();
-          } else {
+          if (downloadFormat === "svg") {
             downloadAsSVG();
+            return;
           }
+          // png/pdf는 백엔드에서 렌더링해서 받기
+          await downloadViaBackend(downloadFormat);
         }
 
-        // PNG 다운로드
-        async function downloadAsPNG() {
-          return downloadFromServer("png");
-        }
+        async function downloadViaBackend(format) {
+          // format: "png" | "pdf"
+          format = (format || "png").toLowerCase();
 
-        // PDF 다운로드
-        async function downloadAsPDF() {
-          return downloadFromServer("pdf");
+          // 로그인 확인
+          if (!window.currentUser || !window.supabase) {
+            alert("Please log in first.");
+            return;
+          }
+
+          // 현재 textarea 기준으로 코드 읽기 (generateFlowchart와 동일한 방어로직)
+          const srcEl = document.getElementById("src");
+          let src = srcEl ? (srcEl.value || "").trim() : "";
+
+          if ((!src || src.length === 0) && typeof savedSourceCode === "string") {
+            const saved = savedSourceCode.trim();
+            if (saved) src = saved;
+          }
+
+          if (!src) {
+            alert("There is no code to export.");
+            return;
+          }
+
+          // access_token 가져오기 (getSession 사용 권장)
+          let accessToken = null;
+          try {
+            const sessionResp = await window.supabase.auth.getSession();
+            accessToken = sessionResp?.data?.session?.access_token || null;
+          } catch (e) {
+            console.warn("Failed to get session:", e);
+          }
+
+          if (!accessToken) {
+            alert("Login session not found. Please log in again.");
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("source_code", src);
+          formData.append("out_format", format);                 // ✅ 백엔드가 out_format 사용
+          formData.append("branch_shape", currentBranchShape);
+
+          // ✅ convert_text와 동일하게 macro_defines 처리
+          if (macroMode === "defined") {
+            const v = (macroDefines || "").trim();
+            if (v.length > 0) formData.append("macro_defines", v);
+            else formData.append("macro_defines", "__USE_ELSE_ONLY__");
+          }
+
+          // ✅ 인증/유저 정보
+          formData.append("access_token", accessToken);
+          formData.append("user_id", window.currentUser.id);
+          formData.append("user_email", window.currentUser.email || "");
+
+          // 다운로드 요청
+          const res = await fetch(API_BASE + "/api/export", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            let msg = `Export failed (${res.status}).`;
+            try {
+              const data = await res.json();
+              if (data?.detail) msg += " " + (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+              if (data?.error) msg += " " + data.error;
+            } catch (_) {}
+            alert(msg);
+            return;
+          }
+
+          // 파일 blob 받기 → 다운로드
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+
+          triggerDownload(url, getCurrentFilename(format));
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
         }
+        
         
         let typingTimer = null;
         const TYPING_DELAY_MS = 600;
