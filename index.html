@@ -1348,12 +1348,7 @@ const HELP_TEXT_HTML = `
 
         // 다운로드 타입에 따라 분기
         async function downloadDiagram() {
-          if (downloadFormat === "svg") {
-            downloadAsSVG();
-            return;
-          }
-          // ✅ png/pdf는 source_code를 보내는 downloadFromServer를 써야 함
-          await downloadFromServer(downloadFormat);
+          downloadAsSVG(); // SVG only
         }
         
         let typingTimer = null;
@@ -2475,20 +2470,17 @@ const HELP_TEXT_HTML = `
 
             applyMacroUIState();
 
-            // ----- Download Options -----
-            try {
-              const saved = localStorage.getItem("autoflow-download-format");
-              if (saved) downloadFormat = saved;
-            } catch(e) {}
+            // ----- Download Options (SVG only) -----
+            downloadFormat = "svg";
+            try { localStorage.setItem("autoflow-download-format", "svg"); } catch(e) {}
 
             const dlRadios = scope.querySelectorAll('input[name="downloadFormat"]');
             dlRadios.forEach(r => {
-              if (r.value === downloadFormat) r.checked = true;
-
+              r.checked = (r.value === "svg");
               r.addEventListener("change", (e) => {
-                if (!e.target.checked) return;
-                downloadFormat = e.target.value; // svg | png | pdf
-                try { localStorage.setItem("autoflow-download-format", downloadFormat); } catch(e2) {}
+                // 혹시라도 DOM에 다른 옵션이 남아있어도 svg로 고정
+                downloadFormat = "svg";
+                try { localStorage.setItem("autoflow-download-format", "svg"); } catch(e2) {}
               });
             });
         }
@@ -2855,16 +2847,11 @@ void main(void)
               <div class="modal-radio-row">
                 <label>
                   <input type="radio" name="downloadFormat" value="svg" checked />
-                  SVG
+                  SVG (recommended)
                 </label>
-                <label>
-                  <input type="radio" name="downloadFormat" value="png" />
-                  PNG
-                </label>
-                <label>
-                  <input type="radio" name="downloadFormat" value="pdf" />
-                  PDF
-                </label>
+                <div style="font-size:12px; opacity:0.8; margin-top:6px;">
+                  Tip: For PDF, use Print → Save as PDF. For PNG, export via Inkscape/Figma.
+                </div>
               </div>
             </div>
         </div>
