@@ -2702,6 +2702,70 @@ const HELP_TEXT_HTML = `
                 isDraggingSettings = false;
             });
 
+            // ============================
+            // SHARE 모달 드래그
+            // ============================
+            const shareOverlayDrag = document.getElementById("shareOverlay");
+            const sharePanel = shareOverlayDrag
+              ? shareOverlayDrag.querySelector(".modal-panel")
+              : null;
+            const shareHeader = sharePanel
+              ? sharePanel.querySelector(".modal-header")
+              : null;
+
+            let isDraggingShare = false;
+            let shareStartX = 0;
+            let shareStartY = 0;
+            let sharePanelStartLeft = 0;
+            let sharePanelStartTop = 0;
+
+            if (shareHeader && sharePanel) {
+              shareHeader.style.cursor = "move";
+
+              shareHeader.addEventListener("mousedown", function (e) {
+                if (e.button !== 0) return; // 왼쪽 버튼만
+                isDraggingShare = true;
+
+                const rect = sharePanel.getBoundingClientRect();
+                shareStartX = e.clientX;
+                shareStartY = e.clientY;
+                sharePanelStartLeft = rect.left;
+                sharePanelStartTop = rect.top;
+
+                // 뷰포트 기준 고정 위치
+                sharePanel.style.position = "fixed";
+                sharePanel.style.left = `${sharePanelStartLeft}px`;
+                sharePanel.style.top = `${sharePanelStartTop}px`;
+
+                e.preventDefault(); // 텍스트 선택 방지
+              });
+            }
+
+            document.addEventListener("mousemove", function (e) {
+              if (!isDraggingShare || !sharePanel) return;
+
+              const dx = e.clientX - shareStartX;
+              const dy = e.clientY - shareStartY;
+
+              let newLeft = sharePanelStartLeft + dx;
+              let newTop  = sharePanelStartTop + dy;
+
+              const maxLeft = window.innerWidth - sharePanel.offsetWidth;
+              const maxTop  = window.innerHeight - sharePanel.offsetHeight;
+
+              if (newLeft < 0) newLeft = 0;
+              if (newTop < 0) newTop = 0;
+              if (newLeft > maxLeft) newLeft = maxLeft;
+              if (newTop > maxTop) newTop = maxTop;
+
+              sharePanel.style.left = `${newLeft}px`;
+              sharePanel.style.top  = `${newTop}px`;
+            });
+
+            document.addEventListener("mouseup", function () {
+              isDraggingShare = false;
+            });
+
 
             updateZoomLabel();
             setupSplitDrag();
@@ -2779,6 +2843,15 @@ const HELP_TEXT_HTML = `
                     generateFlowchart(true);
                 }, TYPING_DELAY_MS);
             });
+
+            // ✅ SHARE: 바깥 클릭하면 닫기
+            const shareOverlay = document.getElementById("shareOverlay");
+            if (shareOverlay) {
+              shareOverlay.addEventListener("mousedown", (e) => {
+                // overlay(회색 배경) 자체를 찍었을 때만 닫기
+                if (e.target === shareOverlay) closeShare();
+              });
+            }
             
             // 코드 클릭/이동 시 → 해당 라인 노드 하이라이트
             src.addEventListener("click", updateNodeHighlightFromCaret);
