@@ -1431,7 +1431,31 @@ const HELP_TEXT_HTML = `
             if (type === "error")   status.classList.add("error");
 
             status.textContent = icon ? `${icon} ${message}` : message;
-        }        
+        }
+
+        function showMacroUpgradePrompt() {
+          // 1) 상태 메시지
+          setStatus("error", "Macro Defines is available on Pro/Expert. Please upgrade to use this feature.");
+
+          // 2) 플로우차트 영역에도 안내 문구
+          const chartInner = document.getElementById("chartInner");
+          if (chartInner) {
+            chartInner.innerHTML = `
+              <p class="placeholder" style="color:#b91c1c;">
+                Macro Defines (Defined mode) is a Pro/Expert feature.<br/>
+                Please upgrade to enable macro-based preprocessing.
+              </p>
+            `;
+          }
+
+          // 3) UPGRADE 버튼 블링크
+          const ub = document.getElementById("upgradeButton");
+          if (ub) {
+            ub.style.display = "inline-flex";
+            ub.classList.add("upgrade-blink");
+          }
+        }
+                
 
         // 백엔드에서 내려오는 에러 코드를 보기 좋게 매핑
         function mapBackendError(errorCode, rawError) {
@@ -2452,9 +2476,42 @@ const HELP_TEXT_HTML = `
             // 라디오 이벤트
             macroModeRadios.forEach(r => {
               if (r.value === macroMode) r.checked = true;
+
               r.addEventListener("change", (e) => {
                 if (!e.target.checked) return;
-                macroMode = e.target.value;     // all | defined
+
+                const nextMode = e.target.value; // all | defined
+
+                // ✅ Lite(=free) 계정에서는 Defined 금지
+                const tier = window.__planTier || (window.__isProUser ? "pro" : "free");
+                const isTest = !!window.__isTestAccount || (window.currentUser && window.currentUser.email === TEST_EMAIL);
+                const isLite = (!isTest && tier === "free");
+
+                if (nextMode === "defined" && isLite) {
+                  // 1) 라디오 선택 되돌리기 (Defined 선택 무효화)
+                  macroMode = "all";
+
+                  // scope 안에서 라디오를 다시 체크 (openSettings clone에서도 동작)
+                  const allRadio = scope.querySelector('input[name="macroMode"][value="all"]');
+                  const defRadio = scope.querySelector('input[name="macroMode"][value="defined"]');
+                  if (defRadio) defRadio.checked = false;
+                  if (allRadio) allRadio.checked = true;
+
+                  // 2) 입력창 잠그고 값 정리
+                  if (macroField) {
+                    macroField.disabled = true;
+                    macroField.value = "";
+                  }
+                  macroDefines = "";
+                  try { localStorage.removeItem("autoflow-macros"); } catch (_) {}
+
+                  // 3) 경고 + 업그레이드 유도
+                  showMacroUpgradePrompt();
+                  return;
+                }
+
+                // ✅ 허용되는 계정이면 정상 동작
+                macroMode = nextMode;
                 applyMacroUIState();
                 generateFlowchart(true);
               });
