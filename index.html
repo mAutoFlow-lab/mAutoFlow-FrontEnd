@@ -1236,20 +1236,21 @@ const HELP_TEXT_HTML = `
           const overlay = document.getElementById("shareOverlay");
           const input = document.getElementById("shareLinkInput");
           const hint  = document.getElementById("shareHint");
+
           if (!overlay || !input) return;
 
           overlay.classList.remove("modal-hidden");
           input.value = "";
           if (hint) hint.textContent = "Generating share link...";
 
-          // 1) 공유할 mermaid 코드 확보 (가장 최근 생성된 것)
+          // ✅ 1) 마지막 생성된 mermaid code 확보
           const mermaid_code = (window.__lastMermaidCode || "").trim();
           if (!mermaid_code) {
-            if (hint) hint.textContent = "No flowchart to share yet. Generate the flowchart first.";
+            if (hint) hint.textContent = "No flowchart to share yet. Please generate a flowchart first.";
             return;
           }
 
-          // 2) access_token 확보
+          // ✅ 2) access_token 확보
           let accessToken = null;
           try {
             const session = supabase.auth.getSession
@@ -1263,38 +1264,40 @@ const HELP_TEXT_HTML = `
             return;
           }
 
-          // 3) 백엔드에 저장 요청
+          // ✅ 3) 백엔드에 share 생성 요청 (FormData로!)
           try {
-            const res = await fetch(`${API_BASE}/api/share`, {
+            const formData = new FormData();
+            formData.append("mermaid_code", mermaid_code);
+            formData.append("access_token", accessToken);
+
+            const res = await fetch(`${API_BASE}/api/share/create`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mermaid_code,
-                access_token: accessToken,
-                user_id: window.currentUser.id,
-                user_email: window.currentUser.email || "",
-              }),
+              body: formData,
             });
 
-            const data = await res.json().catch(() => ({}));
-
             if (!res.ok) {
-              const msg = data?.detail || data?.error || `Share failed (HTTP ${res.status}).`;
-              if (hint) hint.textContent = msg;
+              let detail = "";
+              try { detail = JSON.stringify(await res.json()); } catch(_) {}
+              if (hint) hint.textContent = `Share create failed (HTTP ${res.status}). ${detail}`;
               return;
             }
 
-            // ✅ 백엔드가 url(또는 share_url)을 준다고 가정
-            const url = data.url || data.share_url || "";
-            if (!url) {
-              if (hint) hint.textContent = "Share link was not returned by the server.";
+            const data = await res.json();
+            const share_id = data.share_id;
+
+            if (!share_id) {
+              if (hint) hint.textContent = "Share create failed: share_id missing.";
               return;
             }
+
+            // ✅ 4) 최종 링크 구성 (네가 원하는 형식)
+            const url = `https://mautoflow-frontend.pages.dev/share/${share_id}`;
+            window.__lastShareId = share_id;
 
             input.value = url;
             if (hint) hint.textContent = "";
           } catch (e) {
-            if (hint) hint.textContent = "Network error while generating share link.";
+            if (hint) hint.textContent = `Unexpected error: ${e?.message || e}`;
           }
         }
 
@@ -2225,6 +2228,10 @@ const HELP_TEXT_HTML = `
                 
                 const data = await res.json();
                 const mermaidCode   = data.mermaid || "";
+
+                window.__lastMermaidCode = mermaidCode;   // (Share에서 사용)
+                window.__lastShareId = null; // 새로 생성되면 갱신
+                
                 const errorMsg      = data.error || "";
                 const errorCode     = data.error_code || "";
                 const funcName      = data.func_name || "";
@@ -2232,7 +2239,6 @@ const HELP_TEXT_HTML = `
                 const nodeLines     = data.node_lines || {};
 
                 // 백엔드에서 온 계정 상태 반영
-                window.__lastMermaidCode = mermaidCode;   // (Share에서 사용)
                 window.__isProUser      = !!data.is_pro_user;          // Pro + Expert 모두 true
                 window.__planName       = data.plan_name || null;
                 window.__isTestAccount  = !!data.is_test_account;
